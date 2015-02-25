@@ -4,6 +4,17 @@
  * GitHub: https://github.com/cbries
  * License: MIT, see https://github.com/cbries
  *  
+ * 2015-02-25 Christian Benjamin Ries
+ *   - Within Loop() the serial-line is checked continously for a new dataset
+ *     for configuring individual RGB Led on the 20x10 matrix.
+ *     The dataset has the following format: 1122444666888
+ *     The meaning is: 11  (x-coord)
+ *                     22  (y-coord)
+ *                     444 (red)
+ *                     666 (green)
+ *                     888 (blue)
+ *     On successfully received of the dataset "OK\n" will be returned.
+ *
  * 2015-01-25 Christian Benjamin Ries
  *   - refactoring
  *   - performance improved
@@ -136,13 +147,9 @@ byte isr_red  [DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on 
 byte isr_green[DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on (0)
 byte isr_blue [DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on (0)
 
-volatile bool DoRefresh = false;
-
 ISR(TIMER1_OVF_vect) 
 {
   TCNT1 = __TIMER1_MAX - __TIMER1_CNT;
-
-  //DISPLAY_ON;
 
   for(byte isr_cycle = 0; isr_cycle < MAX_BRIGHTNESS+1; ++isr_cycle) 
   {
@@ -170,8 +177,6 @@ ISR(TIMER1_OVF_vect)
       SPI_STOP;
     }
   }
-
- //DISPLAY_OFF;
 }
 
 void setup(void) 
@@ -185,6 +190,8 @@ void setup(void)
   digitalWrite(SPI_DATA, LOW);
 
   pinMode(DISPLAY_PIN, OUTPUT);
+ 
+  Serial.begin(115200);
  
   randomSeed(analogRead(0));
     
@@ -290,7 +297,9 @@ void loop(void)
   //for(;;) { rainbow(); delay(100); }
   //runaround(); 
  
-  runGrid();
+  //runGrid();
+  
+  checkSerial();
 }
 
 inline void set_led_red(byte x, byte y, byte red)     { *(ptrBrightness + RED(x, y)) = red; }
@@ -327,6 +336,49 @@ void set_led_hue(byte x, byte y, int hue)
 }
 
 // +++++++++++++++
+
+#define MAX 32
+char buf[MAX] = { '\0' };
+byte index = 0;
+
+void checkSerial()
+{
+  while (Serial.available() > 0)
+  {
+    char received = Serial.read();
+    buf[index] = received;
+    buf[index+1] = '\0';
+    ++index;    
+    if(index == MAX) { index = 0; }    
+  }
+  
+  if(index != 0 && buf[index-1] == '\n')
+  {
+    String sbuf(buf);
+  
+    if(index == 14)
+    {
+      String s("");
+      s = sbuf.substring(0, 2);  int x = s.toInt();
+      s = sbuf.substring(2, 4);  int y = s.toInt();
+      s = sbuf.substring(4, 7);  int RED = s.toInt();
+      s = sbuf.substring(7, 10);  int GREEN = s.toInt();
+      s = sbuf.substring(10, 13); int BLUE = s.toInt();
+      
+      //Serial.print("x: "); Serial.println(x);
+      //Serial.print("y: "); Serial.println(y);
+      //Serial.print("R: "); Serial.println(RED);
+      //Serial.print("G: "); Serial.println(GREEN);
+      //Serial.print("B: "); Serial.println(BLUE);
+      
+      set_led_rgb(x, y, RED, GREEN, BLUE);
+      
+      Serial.println("OK");
+    }
+    
+    index = 0;
+  }
+}
 
 void initGrid() { } 
 void runGrid(){
