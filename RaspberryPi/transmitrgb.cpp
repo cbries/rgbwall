@@ -138,6 +138,32 @@ void set_blocking (int fd, int should_block)
 }
 } // namespace Extern
 
+/** \see http://www.cplusplus.com/faq/sequences/strings/trim/
+ */
+namespace Extern
+{
+std::string& trimRight(
+  std::string&       s,
+  const std::string& delimiters = " \f\n\r\t\v" )
+{
+  return s.erase( s.find_last_not_of( delimiters ) + 1 );
+}
+
+std::string& trimLeft(
+  std::string&       s,
+  const std::string& delimiters = " \f\n\r\t\v" )
+{
+  return s.erase( 0, s.find_first_not_of( delimiters ) );
+}
+
+std::string& trim(
+  std::string&       s,
+  const std::string& delimiters = " \f\n\r\t\v" )
+{
+  return trimLeft( trimRight( s, delimiters ), delimiters );
+}
+} // namespace Extern
+
 /**
  *
  */
@@ -169,17 +195,17 @@ int main(int argc, char **argv)
 
 	bool ok = false;
 	int tryCounter = 0;
-	while(!ok && tryCounter < 10) 
+	while(!ok && tryCounter < 50) 
 	{
 		char buf[32] = { '\0' };
 		snprintf(buf, 32, "%02d%02d%03d%03d%03d\n", 
 			data.x, data.y, data.r, data.g, data.b);
-		++tryCounter;
-		std::cout << "Trying: " << buf;
+		std::cout << tryCounter << " -> Trying: " << buf;
 		ssize_t n = write(fd, buf, strlen(buf));
 		usleep ((n + 25) * 100);
 		std::cout << "Transmitted bytes: " << n << std::endl;
-		if(n < 0) { continue; }
+		if(n < 0) { perror("write()"); continue; }
+		++tryCounter;
 
 		FD_ZERO(&rfds);
         	FD_SET(fd, &rfds);
@@ -188,15 +214,23 @@ int main(int argc, char **argv)
            	tv.tv_usec = 0;
 	
 		int retval = select(fd+1, &rfds, NULL, NULL, &tv);
+		std::cout << "select(): " << retval << std::endl;
 		if (retval == -1) perror("select() for reading");
 		else if(retval)
 		{
+			buf[0] = '\0';
 			n = read(fd, buf, 32);
 			buf[n] = '\0';
-			ok = !strcmp(buf, "OK") || !strcmp(buf, "OK\n");
+			std::string sbuf(buf);
+			Extern::trim(sbuf);
+			if(n != 0)
+			{
+				std::size_t found = sbuf.find("OK");
+				ok = found != std::string::npos;
+			}
 			if(ok)
 			{
-				std::cout << "Result: " << buf;
+				std::cout << "Result: " << buf << std::endl;
 			}
 		}
 		else
