@@ -362,9 +362,7 @@ void checkSerial()
   
   if(index != 0 && buf[index-1] == '\n')
   {
-    //Serial.print(buf);
     String sbuf(buf);
-    //Serial.print(sbuf);
   
     if(index == 14)
     {
@@ -374,12 +372,6 @@ void checkSerial()
       s = sbuf.substring(4, 7);  int RED = s.toInt();
       s = sbuf.substring(7, 10);  int GREEN = s.toInt();
       s = sbuf.substring(10, 13); int BLUE = s.toInt();
-      
-      //Serial.print("x: "); Serial.println(x);
-      //Serial.print("y: "); Serial.println(y);
-      //Serial.print("R: "); Serial.println(RED);
-      //Serial.print("G: "); Serial.println(GREEN);
-      //Serial.print("B: "); Serial.println(BLUE);
       
       set_led_rgb(x, y, RED, GREEN, BLUE);
       

@@ -21,6 +21,9 @@
  *  Result: OKData transmitted: x: 00, y: 00, RGB(023, 045, 056)
  *  pi@raspbmc:~/development$
  * [/Output]
+ *
+ * for-Loop for X:
+ *  $ for x in `seq 0 19` ; do  ./transmitrgb /dev/ttyACM0 -x $x -y 5 -r 255 -g 000 -b 255; done
  */
 
 #include <stdio.h>
