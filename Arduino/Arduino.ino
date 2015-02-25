@@ -147,8 +147,12 @@ byte isr_red  [DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on 
 byte isr_green[DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on (0)
 byte isr_blue [DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on (0)
 
+volatile bool DoRefresh = true;
+
 ISR(TIMER1_OVF_vect) 
 {
+  if(DoRefresh == false) { return; }
+  
   TCNT1 = __TIMER1_MAX - __TIMER1_CNT;
 
   for(byte isr_cycle = 0; isr_cycle < MAX_BRIGHTNESS+1; ++isr_cycle) 
@@ -192,6 +196,7 @@ void setup(void)
   pinMode(DISPLAY_PIN, OUTPUT);
  
   Serial.begin(115200);
+  Serial.println("*** Initialized ***");
  
   randomSeed(analogRead(0));
     
@@ -345,6 +350,7 @@ void checkSerial()
 {
   while (Serial.available() > 0)
   {
+    DoRefresh = false;
     char received = Serial.read();
     buf[index] = received;
     buf[index+1] = '\0';
@@ -352,9 +358,13 @@ void checkSerial()
     if(index == MAX) { index = 0; }    
   }
   
+  DoRefresh = true;
+  
   if(index != 0 && buf[index-1] == '\n')
   {
+    //Serial.print(buf);
     String sbuf(buf);
+    //Serial.print(sbuf);
   
     if(index == 14)
     {
