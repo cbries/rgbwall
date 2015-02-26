@@ -27,12 +27,13 @@
 
 var WebSocketServer = require('websocket').server;
 var http = require('http');
-var sprintfjs = require("../src/sprintf.js"),
+var sprintfjs = require("sprintf"),
     sprintf = sprintfjs.sprintf,
     vsprintf = sprintfjs.vsprintf;
+var exec = require('child_process').exec;
 var webSocketsServerPort = 1337;
 
-var connection = null;
+var connections = [ ];
 
 var server = http.createServer(function(request, response) {
     // process HTTP request. Since we're writing just WebSockets server
@@ -51,32 +52,36 @@ wsServer.on('request', function(request)
 	console.log((new Date()) + ' Connection from origin ' + request.origin + '.');
 
     	var newConnection = request.accept(null, request.origin);
-	if(connection != null) {
-		newConnection.sendUTF(JSON.stringify({type: 'failure', message: 'Only one request is allowed.'}));
-		newConnection.close();
-		return ;
-	}
+	connections.push(newConnection);
 
-	connection = newConnection;
-
-    	connection.on('message', function(message) {
-    		 try {
-			var json = JSON.parse(message.data);
+    	newConnection.on('message', function(message) {
+    		console.log(message); 
+		try {
+			var json = JSON.parse(message.utf8Data);
 		} catch (e) {
-			console.log('This doesn\'t look like a valid JSON: ', message.data);
+			console.log('This doesn\'t look like a valid JSON: ', message.utf8Data);
 			return ;
 		} 
 
 		if(json.type === 'single')
 		{
 			var osingle = json.data;
-			var cmd = sprintf("%02d%02d%03d%03d%03d\n"
-					, osingle.x
-					, osingle.y
-					, osingle.red
-					, osingle.green
-					, osingle.blue);
-			console.log("RGB command: ", cmd);
+			var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500"
+					, parseInt(osingle.x)
+					, parseInt(osingle.y)
+					, parseInt(osingle.red)
+					, parseInt(osingle.green)
+					, parseInt(osingle.blue));
+					
+			var child = exec(cmd,
+				function (error, stdout, stderr) {
+					console.log(' Exec::Sdout: ' + stdout);
+    					console.log(' Exec::Stderr: ' + stderr);
+    					if (error !== null) {
+      						console.log(' Exec failure: ' + error);
+					}
+				}
+			);
 		}
 		else if(json.type === 'grid')
 		{
@@ -86,14 +91,22 @@ wsServer.on('request', function(request)
 				var data = ogrid[i];
 				if(data !== null && typeof(data) !== 'undefined')
 				{
-					var cmd = sprintf("%02d%02d%03d%03d%03d\n"
-						, data.x
-                                        	, data.y
-                                        	, data.red
-                                        	, data.green
-                                        	, data.blue);
+					var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500"
+						, parseInt(data.x)
+                                        	, parseInt(data.y)
+                                        	, parseInt(data.red)
+                                        	, parseInt(data.green)
+                                        	, parseInt(data.blue));
 
-                        		console.log("RGB command: ", cmd);
+					var child = exec(cmd,
+                                		function (error, stdout, stderr) {
+                                        		console.log(' Exec::Sdout: ' + stdout);
+                                        		console.log(' Exec::Stderr: ' + stderr);
+                                        		if (error !== null) {
+                                        		        console.log(' Exec failure: ' + error);
+                                       			}
+                                		}
+                        		);
 				}
 			}
 		}
@@ -103,8 +116,15 @@ wsServer.on('request', function(request)
 		}
 	});
 
-    	connection.on('close', function(connection) {
-        	connection = null;
-    	});
+    	newConnection.on('close', function(connection) {
+    		var p = this;
+		for(var i=0; i < connections.length; ++i)
+		{
+			if(connections[i] == p)
+			{
+				connections.splice(i, 1);	
+			}
+		}
+	});
 });
 
