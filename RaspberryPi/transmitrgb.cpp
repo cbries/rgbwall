@@ -7,7 +7,25 @@
 
 /*
  * Build: $ g++ -O3 -o transmitrgb transmitrgb.cpp -std=c++0x
- * Usage: $ transmitrgb /dev/ttyACM0 -x 00 -y 00 -r 23 -g 25 -b 65
+ * Usage: $ transmitrgb /dev/ttyACM0 -x 00 -y 00 -r 23 -g 25 -b 65 [-ts 0 -tms 500]
+ *
+ *  IMPORTANT:
+ * ###################
+ * In case this tool is used in combination with an Arduino UNO keep in mind
+ * that any new connection will reset/reboot the Microcontroller (i.e. Setup() is called).
+ * A more detailed explanation about this behaviour can be found on the official
+ * Arduino website: http://arduino.cc/en/Main/arduinoBoardUno (Paragraph: Automatic (Software) Reset).
+ * For avoiding this some tricks/hacks are tried by people in the web. In my case I tried
+ * several ways but only one works.
+ * [Cite, http://forum.arduino.cc/index.php?topic=22974.msg173615#msg173615]
+ *   [..] a 47 ohm resistor between 3.3v and reset seems to prevent serial resets.  
+ *   It's a more common value and leaves the 5v pin open.  But if you hit the reset switch it it will 
+ *   draw 70 ma from the ftdi 3.3V port while the switch is closed, and the datasheet lists 50ma max.
+ *   I tapped my reset button a few times with this configuration and the magic smoke stayed put, and 
+ *   upload still worked when I pulled out the resistor, but I can't really recommend the 47 ohm if 
+ *   you are planning on using the reset switch.
+ * [/Cite]
+ * ###################
  *
  * [Output]
  *  pi@raspbmc:~/development$ ./transmitrgb /dev/ttyACM0 -x 00 -y 00 -r 23 -g 45 -b 56
@@ -34,6 +52,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
@@ -45,6 +64,8 @@ struct Data
 		devname = "/dev/ttyACM0";
 		x = 0; y = 0;
 		r = 0; g = 0; b = 0; 
+		timeoutSecs = 1;
+		timeoutMsecs = 0;
 	}
 	std::string devname;
 	uint8_t x, y;
@@ -55,6 +76,8 @@ struct Data
 		   , x, y, r, g, b);
 		return std::string(buf);
 	}
+	uint8_t timeoutSecs;
+	uint8_t timeoutMsecs;
 };
 
 bool parseOptions(int argc, char **argv, Data & data)
@@ -68,6 +91,8 @@ bool parseOptions(int argc, char **argv, Data & data)
 		else if(!strcmp(argv[i], "-r")) { data.r = atoi(argv[i+1]); }
 		else if(!strcmp(argv[i], "-g")) { data.g = atoi(argv[i+1]); }
 		else if(!strcmp(argv[i], "-b")) { data.b = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-ts")) { data.timeoutSecs = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-tms")) { data.timeoutMsecs = atoi(argv[i+1]); }
 		else { }
 	}
 	return true;
@@ -76,6 +101,7 @@ bool parseOptions(int argc, char **argv, Data & data)
 void showUsage()
 {
 	std::cout << "Usage: transmitgrb DEVNAME -x INT -y INT -r INT -g INT -b INT" << std::endl;
+	std::cout << " Optional: -ts UINT8 -tms UINT8  (for setting a timeout)" << std::endl; 
 }
 
 /**
@@ -121,6 +147,33 @@ int set_interface_attribs (int fd, int speed, int parity)
                 return -1;
         }
         return 0;
+}
+
+void set_dtr(int fd, bool state)
+{
+	int res = 0;
+	int iFlags;
+	if(state)
+	{
+		iFlags = TIOCM_DTR;
+		res = ioctl(fd, TIOCMBIS, &iFlags);
+	}
+	else
+	{
+		iFlags = TIOCM_DTR;
+		res = ioctl(fd, TIOCMBIC, &iFlags);
+	}
+	if(res == -1)
+	{
+		perror("ioctl() for dtr failed");
+	}
+}
+
+bool get_dtr(int fd)
+{
+	int serial;
+	ioctl(fd, TIOCMGET, &serial);
+	return (serial & TIOCM_DTR);
 }
 
 void set_blocking (int fd, int should_block)
@@ -172,7 +225,7 @@ std::string& trim(
  */
 int main(int argc, char **argv)
 {
-	if(argc != 12)
+	if(argc < 12)
 	{
 		showUsage();
 		return 1;
@@ -189,7 +242,7 @@ int main(int argc, char **argv)
 	if(fd == -1) { return 2; }	
 
 	Extern::set_interface_attribs(fd, B115200, 0);
-	Extern::set_blocking (fd, 0);
+	Extern::set_blocking(fd, 0);
 
 	std::cout << "Device opened: " << data.devname.c_str() << std::endl;
 
@@ -213,8 +266,8 @@ int main(int argc, char **argv)
 		FD_ZERO(&rfds);
         	FD_SET(fd, &rfds);
 
-		tv.tv_sec = 1;
-           	tv.tv_usec = 0;
+		tv.tv_sec = data.timeoutSecs;
+           	tv.tv_usec = data.timeoutMsecs;
 	
 		int retval = select(fd+1, &rfds, NULL, NULL, &tv);
 		std::cout << "select(): " << retval << std::endl;

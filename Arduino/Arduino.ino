@@ -4,6 +4,9 @@
  * GitHub: https://github.com/cbries
  * License: MIT, see https://github.com/cbries
  *  
+ * 2015-02-26 Christian Benjamin Ries
+ *   - the serial connection has been modified and works more stable
+ *
  * 2015-02-25 Christian Benjamin Ries
  *   - Within Loop() the serial-line is checked continously for a new dataset
  *     for configuring individual RGB Led on the 20x10 matrix.
@@ -59,6 +62,8 @@ const uint16_t RgbGrid[HEIGHT][WIDTH][3] PROGMEM = {
   , { {439,503,567}, {438,502,566}, {437,501,565}, {436,500,564}, {435,499,563}, {434,498,562}, {433,497,561}, {432,496,560},   {  0, 64,128}, {  1, 65,129}, {  2, 66,130}, {  3, 67,131},   {399,463,527}, {398,462,526}, {397,461,525}, {396,460,524}, {395,459,523}, {394,458,522}, {393,457,521}, {392,456,520} }
   , { {447,511,575}, {446,510,574}, {445,509,573}, {444,508,572}, {443,507,571}, {442,506,570}, {441,505,569}, {440,504,568},   {  7, 71,135}, {  6, 70,134}, {  5, 69,133}, {  4, 68,132},   {391,455,519}, {390,454,518}, {389,453,517}, {388,452,516}, {387,451,515}, {386,450,514}, {385,449,513}, {384,448,512} }
 };
+
+volatile uint8_t RgbValues[HEIGHT][WIDTH][3] = { 0 };
 
 inline uint16_t RED(byte x, byte y) { return pgm_read_dword(&RgbGrid[y][x][0]); }
 inline uint16_t GREEN(byte x, byte y) { return pgm_read_dword(&RgbGrid[y][x][1]); }
@@ -196,10 +201,12 @@ void setup(void)
   pinMode(DISPLAY_PIN, OUTPUT);
  
   Serial.begin(115200);
+  delay(25);
+  Serial.flush();
   Serial.println("*** Initialized ***");
  
   randomSeed(analogRead(0));
-    
+     
   setup_hardware_spi();
   memset((void*)brightness, 0, sizeof(brightness));  
   initGrid();
@@ -301,10 +308,9 @@ void loop(void)
   //for(;;) { color_wave(18); copyBuffer(); delay(75); }
   //for(;;) { rainbow(); delay(100); }
   //runaround(); 
- 
-  //runGrid();
-  
+   
   checkSerial();
+  runGrid();
 }
 
 inline void set_led_red(byte x, byte y, byte red)     { *(ptrBrightness + RED(x, y)) = red; }
@@ -372,8 +378,10 @@ void checkSerial()
       s = sbuf.substring(4, 7);  int RED = s.toInt();
       s = sbuf.substring(7, 10);  int GREEN = s.toInt();
       s = sbuf.substring(10, 13); int BLUE = s.toInt();
-      
-      set_led_rgb(x, y, RED, GREEN, BLUE);
+            
+      RgbValues[y][x][0] = RED;
+      RgbValues[y][x][1] = GREEN;
+      RgbValues[y][x][2] = BLUE;
       
       Serial.println("OK");
     }
@@ -382,8 +390,34 @@ void checkSerial()
   }
 }
 
-void initGrid() { } 
-void runGrid(){
+void initGrid() 
+{
+  for(uint8_t x = 0; x < WIDTH; ++x) {
+    for(uint8_t y = 0; y < HEIGHT; ++y) {
+        RgbValues[y][x][0] = 0;
+        RgbValues[y][x][1] = 0;
+        RgbValues[y][x][2] = 0;
+    }
+  }
+} 
+void runGrid() 
+{
+  for(uint8_t x = 0; x < WIDTH; ++x) {
+    for(uint8_t y = 0; y < HEIGHT; ++y) {
+
+        set_led_rgb(x, y, RgbValues[y][x][0], RgbValues[y][x][1], RgbValues[y][x][2]);
+        
+        //String s = "XY: "; s.concat(x); s.concat(", "); s.concat(y);
+        //       s.concat(" -> RGB: ");
+        //       s.concat(RgbValues[y][x][0]); s.concat(", ");
+        //       s.concat(RgbValues[y][x][1]); s.concat(", ");
+        //       s.concat(RgbValues[y][x][2]);
+        //Serial.println(s);
+    }
+  }
+  delayMicroseconds(100);
+/*
+        // Shows a Goomba, see https://raw.githubusercontent.com/cbries/rgbwall/master/Photos,%20Images,%20Videos/Goomba01.jpg
 	set_led_rgb(0, 0, 13, 9, 7);	set_led_rgb(1, 0, 13, 5, 0);	set_led_rgb(2, 0, 8, 3, 0);	set_led_rgb(3, 0, 5, 2, 1);	set_led_rgb(4, 0, 5, 4, 4);	set_led_rgb(5, 0, 7, 3, 0);	set_led_rgb(6, 0, 10, 4, 0);	set_led_rgb(7, 0, 13, 5, 0);	set_led_rgb(8, 0, 13, 5, 0);	set_led_rgb(9, 0, 13, 5, 0);	set_led_rgb(10, 0, 13, 5, 0);	set_led_rgb(11, 0, 13, 5, 0);	set_led_rgb(12, 0, 11, 4, 0);	set_led_rgb(13, 0, 8, 3, 0);	set_led_rgb(14, 0, 5, 4, 4);	set_led_rgb(15, 0, 5, 3, 1);	set_led_rgb(16, 0, 7, 2, 0);	set_led_rgb(17, 0, 13, 5, 0);	set_led_rgb(18, 0, 13, 8, 5);	set_led_rgb(19, 0, 14, 11, 10);
 	set_led_rgb(0, 1, 13, 5, 0);	set_led_rgb(1, 1, 13, 5, 0);	set_led_rgb(2, 1, 13, 5, 0);	set_led_rgb(3, 1, 13, 6, 2);	set_led_rgb(4, 1, 13, 12, 10);	set_led_rgb(5, 1, 2, 2, 2);	set_led_rgb(6, 1, 5, 2, 0);	set_led_rgb(7, 1, 13, 5, 0);	set_led_rgb(8, 1, 13, 5, 0);	set_led_rgb(9, 1, 13, 5, 0);	set_led_rgb(10, 1, 13, 5, 0);	set_led_rgb(11, 1, 13, 5, 0);	set_led_rgb(12, 1, 7, 3, 0);	set_led_rgb(13, 1, 0, 0, 0);	set_led_rgb(14, 1, 13, 12, 9);	set_led_rgb(15, 1, 13, 8, 4);	set_led_rgb(16, 1, 13, 5, 0);	set_led_rgb(17, 1, 13, 5, 0);	set_led_rgb(18, 1, 13, 5, 0);	set_led_rgb(19, 1, 13, 6, 1);
 	set_led_rgb(0, 2, 13, 5, 0);	set_led_rgb(1, 2, 13, 5, 0);	set_led_rgb(2, 2, 13, 5, 0);	set_led_rgb(3, 2, 13, 6, 2);	set_led_rgb(4, 2, 13, 12, 10);	set_led_rgb(5, 2, 2, 2, 2);	set_led_rgb(6, 2, 0, 0, 0);	set_led_rgb(7, 2, 0, 0, 0);	set_led_rgb(8, 2, 0, 0, 0);	set_led_rgb(9, 2, 0, 0, 0);	set_led_rgb(10, 2, 0, 0, 0);	set_led_rgb(11, 2, 0, 0, 0);	set_led_rgb(12, 2, 0, 0, 0);	set_led_rgb(13, 2, 0, 0, 0);	set_led_rgb(14, 2, 13, 12, 9);	set_led_rgb(15, 2, 13, 8, 4);	set_led_rgb(16, 2, 13, 5, 0);	set_led_rgb(17, 2, 13, 5, 0);	set_led_rgb(18, 2, 13, 5, 0);	set_led_rgb(19, 2, 13, 6, 2);
@@ -395,4 +429,5 @@ void runGrid(){
 	set_led_rgb(0, 8, 13, 5, 0);	set_led_rgb(1, 8, 13, 5, 0);	set_led_rgb(2, 8, 13, 5, 0);	set_led_rgb(3, 8, 13, 5, 0);	set_led_rgb(4, 8, 13, 5, 0);	set_led_rgb(5, 8, 13, 9, 6);	set_led_rgb(6, 8, 13, 12, 10);	set_led_rgb(7, 8, 13, 12, 10);	set_led_rgb(8, 8, 13, 12, 10);	set_led_rgb(9, 8, 13, 12, 10);	set_led_rgb(10, 8, 13, 12, 10);	set_led_rgb(11, 8, 13, 12, 10);	set_led_rgb(12, 8, 13, 12, 10);	set_led_rgb(13, 8, 13, 10, 8);	set_led_rgb(14, 8, 13, 5, 0);	set_led_rgb(15, 8, 13, 5, 0);	set_led_rgb(16, 8, 13, 5, 0);	set_led_rgb(17, 8, 13, 5, 0);	set_led_rgb(18, 8, 13, 5, 0);	set_led_rgb(19, 8, 13, 6, 2);
 	set_led_rgb(0, 9, 14, 11, 8);	set_led_rgb(1, 9, 14, 11, 9);	set_led_rgb(2, 9, 14, 11, 9);	set_led_rgb(3, 9, 13, 10, 7);	set_led_rgb(4, 9, 13, 9, 6);	set_led_rgb(5, 9, 13, 11, 8);	set_led_rgb(6, 9, 13, 12, 10);	set_led_rgb(7, 9, 13, 12, 10);	set_led_rgb(8, 9, 13, 12, 10);	set_led_rgb(9, 9, 13, 12, 10);	set_led_rgb(10, 9, 13, 12, 10);	set_led_rgb(11, 9, 13, 12, 10);	set_led_rgb(12, 9, 13, 12, 10);	set_led_rgb(13, 9, 13, 11, 9);	set_led_rgb(14, 9, 13, 9, 6);	set_led_rgb(15, 9, 14, 10, 7);	set_led_rgb(16, 9, 14, 11, 9);	set_led_rgb(17, 9, 14, 11, 9);	set_led_rgb(18, 9, 14, 11, 9);	set_led_rgb(19, 9, 14, 11, 9);
 	delay(1000);
+*/
 }
