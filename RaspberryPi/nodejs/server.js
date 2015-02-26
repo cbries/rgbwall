@@ -9,6 +9,22 @@
  *  -> http://ahoj.io/nodejs-and-websocket-simple-chat-tutorial
  */
 
+//
+// Protocol:
+// --------------------------------------------------------------
+// { "type" : "single",
+//   "data" : {
+//       "x" : INT, "y" : INT,
+//       "red" : INT, "green" : INT, "blue" : INT
+// }}
+//
+// { "type" : "grid",
+//   "data" : [
+//  { "x":INT, "y":INT, "red":INT, "green":INT, "blue":INT },
+//      { ... }
+// ]}
+// --------------------------------------------------------------
+
 var WebSocketServer = require('websocket').server;
 var http = require('http');
 var sprintfjs = require("../src/sprintf.js"),
@@ -42,22 +58,6 @@ wsServer.on('request', function(request)
 	}
 
 	connection = newConnection;
-
-//
-// Protocol:
-// --------------------------------------------------------------
-// { "type" : "single",
-//   "data" : {
-//	 "x" : INT, "y" : INT,
-//	 "red" : INT, "green" : INT, "blue" : INT
-// }}
-//
-// { "type" : "grid",
-//   "data" : [
-//  { "x":INT, "y":INT, "red":INT, "green":INT, "blue":INT },
-//	{ ... }
-// ]}
-// --------------------------------------------------------------
 
     	connection.on('message', function(message) {
     		 try {
