@@ -1,5 +1,11 @@
 # rgbwall
-An application for Microcontrollers running Arduino for controlling a 20x10 RGB Led wall. This projects provides the C++-Source, the Electronic schematic, and some other cool stuff.
+An application for Microcontrollers running Arduino for controlling a 20x10 RGB Led wall. This project provides the C++-Source, the Electronic schematic, and some other cool stuff.
+
+## /Arduino
+The included Sketch should be burned to your Arduino like Microcontroller/Board (e.g. Arduino UNO, version of Jan. 2015).
+
+## /RaspberryPi
+This directory includes tools for controlling the Arduino Sketch which allows to specify which RGB Leds on the rgbwall are enabled/disabled and which color they are glow.
 
 # Examples / Results
 
