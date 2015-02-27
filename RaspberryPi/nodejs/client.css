@@ -1,7 +1,7 @@
 body { }
 table.grid { }
 	table.grid td {
-		border: 1px solid black;
+		border: 1px solid lightgrey;
 	}
 div.connect {
 	display: inline;

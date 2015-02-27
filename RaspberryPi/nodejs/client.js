@@ -52,13 +52,38 @@ function createGridTable()
 		{
 			var tdid = 'td_' + x + '_' + y;
 			ids.push(tdid);
-			content += '<td id="' + tdid + '" width="'+tableWHdelta+'" height="'+tableWHdelta+'">&nbsp;</td>';
+			content += '<td id="' + tdid + '" width="'+tableWHdelta+'" height="'+tableWHdelta+'">';
+			content += '<div id="colorPicker_'+x+'_'+y+'" class="colorPicker">';
+			content +=   '<a class="color"><div class="colorInner"></div></a>';
+			content +=   '<div class="track"></div>';
+		  content +=   '<ul class="dropdown"><li></li></ul>';
+			content +=   '<input type="hidden" class="colorInput"/>';
+			content += '</div>';
+			content += '</td>';
 		}
 		content += '</tr>';
 	}
 	content += '</table>'
 	objTable.append(content);
 	
+	// init color picker
+	for(var y=0; y < gridHeight; ++y)
+	{
+		for(var x=0; x < gridWidth; ++x)
+		{
+			var id = '#colorPicker_'+x+'_'+y;
+			$(id).tinycolorpicker();
+			var $box = $(id);
+			
+			if(x == 0 && y == 0) { console.debug($box); }
+			
+			$box.on("change", function() {
+        console.debug($(this).data("plugin_tinycolorpicker").colorHex);
+			});
+		}
+	}
+	
+	/*
 	for(var i=0; i < ids.length; ++i) 
 	{
 		var id = ids[i];
@@ -83,6 +108,7 @@ function createGridTable()
 			sendColor(x, y, red, green, blue);
 		});
 	}
+	*/
 }
 
 function wsOnOpen() {
