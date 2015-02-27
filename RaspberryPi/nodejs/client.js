@@ -71,44 +71,27 @@ function createGridTable()
 	{
 		for(var x=0; x < gridWidth; ++x)
 		{
-			var id = '#colorPicker_'+x+'_'+y;
+			var id = '#colorPicker_' + x + '_' + y;
 			$(id).tinycolorpicker();
 			var $box = $(id);
-			
-			if(x == 0 && y == 0) { console.debug($box); }
-			
+						
 			$box.on("change", function() {
-        console.debug($(this).data("plugin_tinycolorpicker").colorHex);
+				var rgb = $(this).data("plugin_tinycolorpicker").colorRGB;
+				rgb = rgb.replace("rgb(", "");
+				rgb = rgb.replace(")", "");
+				var parts = rgb.split(",");
+				var red = parseInt(parts[0]);
+				var green = parseInt(parts[1]);
+				var blue = parseInt(parts[2]);
+				
+				var senderId = $(this).attr('id');
+				senderId = senderId.replace("colorPicker_", "");
+				var xy = senderId.split("_");
+								
+				sendColor(parseInt(xy[0]), parseInt(xy[1]), red, green, blue);
 			});
 		}
 	}
-	
-	/*
-	for(var i=0; i < ids.length; ++i) 
-	{
-		var id = ids[i];
-		$('#' + id).click(function(ev)
-		{
-			var parts = ev.target.id.split("_");
-			var x = parts[1];
-			var y = parts[2];
-			
-			var step = 255.0 / parseInt(mb());
-			var red   = (step * parseInt(randomColorPart())).toString(16);
-			var green = (step * parseInt(randomColorPart())).toString(16);
-			var blue  = (step * parseInt(randomColorPart())).toString(16);
-			
-			var rgb = "#" + to2digit(red) + to2digit(green) + to2digit(blue);		
-			for(var ii=0; ii < 10; ++ii)
-			{
-				$('#' + ev.target.id).css('background-color', rgb);
-				$('#' + ev.target.id).css('backgroundColor', rgb);
-			}
-			console.debug("Background color changed of: " + ev.target.id + " -> " + rgb);
-			sendColor(x, y, red, green, blue);
-		});
-	}
-	*/
 }
 
 function wsOnOpen() {
@@ -178,6 +161,25 @@ $( document ).ready(function()
 			
 			ws.send(JSON.stringify(cmd));
 		}
+	});
+	
+	$('#cmdRandom').click(function(ev) {
+		for(var x=0; x < gridWidth; ++x)
+		{
+      for(var y=0; y < gridHeight; ++y)
+		  {
+				var step = 255.0 / parseInt(mb());
+				var red   = step * parseInt(randomColorPart());
+				var green = step * parseInt(randomColorPart());
+				var blue  = step * parseInt(randomColorPart());
+			  				
+				var id = '#colorPicker_' + x + '_' + y;
+				var $box = $(id);				
+
+				$box.data("plugin_tinycolorpicker").setColor("rgb("+red+","+green+","+blue+")");				
+				sendColor(x, y, red, green, blue);
+			}
+		}			
 	});
 	
 	$('#cmdConnect').click(function(ev) {

@@ -379,9 +379,9 @@ void checkSerial()
       s = sbuf.substring(7, 10);  int GREEN = s.toInt();
       s = sbuf.substring(10, 13); int BLUE = s.toInt();
             
-      RgbValues[y][x][0] = RED;
-      RgbValues[y][x][1] = GREEN;
-      RgbValues[y][x][2] = BLUE;
+      RgbValues[y][x][0] = RED / MAX_BRIGHTNESS;
+      RgbValues[y][x][1] = GREEN / MAX_BRIGHTNESS;
+      RgbValues[y][x][2] = BLUE / MAX_BRIGHTNESS;
       
       Serial.println("OK");
     }
