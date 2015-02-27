@@ -30,8 +30,21 @@ var http = require('http');
 var sprintfjs = require("sprintf"),
     sprintf = sprintfjs.sprintf,
     vsprintf = sprintfjs.vsprintf;
-var exec = require('child_process').exec;
+var exec = require('child_process').execSync;
 var webSocketsServerPort = 1337;
+
+var fs = require('fs');
+var util = require('util');
+var log_file = fs.createWriteStream(__dirname + '/debug.log', {flags : 'w'});
+var log_stdout = process.stdout;
+
+console.log = function(d) { //
+  log_file.write(util.format(d) + '\n');
+  log_stdout.write(util.format(d) + '\n');
+};
+console.logfile = function(d) { //
+  log_file.write(util.format(d) + '\n');
+}
 
 var connections = [ ];
 
@@ -47,11 +60,29 @@ wsServer = new WebSocketServer({
 	httpServer: server
 });
 
+function sendOk(connection, x, y)
+{
+	connection.send(JSON.stringify({
+		"State" : "Ok",
+		"x" : x,
+		"y" : y
+	}));
+}
+
+function execLog(error, stdout, stderr) 
+{
+	console.logfile(' Exec::Stdout: ' + stdout);
+	console.logfile(' Exec::Stderr: ' + stderr);
+	if (error !== null) {
+		console.log(' Exec failure: ' + error);
+	}
+}
+
 wsServer.on('request', function(request) 
 {
 	console.log((new Date()) + ' Connection from origin ' + request.origin + '.');
 
-    	var newConnection = request.accept(null, request.origin);
+	var newConnection = request.accept(null, request.origin);
 	connections.push(newConnection);
 
     	newConnection.on('message', function(message) {
@@ -66,22 +97,16 @@ wsServer.on('request', function(request)
 		if(json.type === 'single')
 		{
 			var osingle = json.data;
-			var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500"
+			var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500 -t"
 					, parseInt(osingle.x)
 					, parseInt(osingle.y)
 					, parseInt(osingle.red)
 					, parseInt(osingle.green)
 					, parseInt(osingle.blue));
 					
-			var child = exec(cmd,
-				function (error, stdout, stderr) {
-					console.log(' Exec::Sdout: ' + stdout);
-    					console.log(' Exec::Stderr: ' + stderr);
-    					if (error !== null) {
-      						console.log(' Exec failure: ' + error);
-					}
-				}
-			);
+			console.log("Cmd: " + cmd);
+			var child = exec(cmd, execLog);
+			sendOk(newConnection, osingle.x, osingle.y);
 		}
 		else if(json.type === 'grid')
 		{
@@ -91,22 +116,16 @@ wsServer.on('request', function(request)
 				var data = ogrid[i];
 				if(data !== null && typeof(data) !== 'undefined')
 				{
-					var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500"
+					var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500 -t"
 						, parseInt(data.x)
-                                        	, parseInt(data.y)
-                                        	, parseInt(data.red)
-                                        	, parseInt(data.green)
-                                        	, parseInt(data.blue));
+						, parseInt(data.y)
+						, parseInt(data.red)
+						, parseInt(data.green)
+						, parseInt(data.blue));
 
-					var child = exec(cmd,
-                                		function (error, stdout, stderr) {
-                                        		console.log(' Exec::Sdout: ' + stdout);
-                                        		console.log(' Exec::Stderr: ' + stderr);
-                                        		if (error !== null) {
-                                        		        console.log(' Exec failure: ' + error);
-                                       			}
-                                		}
-                        		);
+					console.log("Cmd: " + cmd);
+					var child = exec(cmd, execLog);
+					sendOk(newConnection, data.x, data.y);
 				}
 			}
 		}
@@ -116,8 +135,8 @@ wsServer.on('request', function(request)
 		}
 	});
 
-    	newConnection.on('close', function(connection) {
-    		var p = this;
+    newConnection.on('close', function(connection) {
+    	var p = this;
 		for(var i=0; i < connections.length; ++i)
 		{
 			if(connections[i] == p)

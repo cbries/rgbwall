@@ -3,7 +3,6 @@
 // License: MIT
 //
 var objTable;
-var maxBrightness = 255;
 var gridWidth = 20;
 var gridHeight = 10;
 var tableWHdelta = 40;
@@ -21,7 +20,7 @@ function to2digit(v) {
 
 function randomColorPart()
 {
-	return Math.floor((Math.random() * parseInt(mb())) + 0);
+	return Math.floor(Math.random() * 255) + 1;
 }
 
 function sendColor(x, y, red, green, blue)
@@ -94,20 +93,53 @@ function createGridTable()
 	}
 }
 
+function setTdState(x, y, state)
+{
+	var id = '#td_' + x + '_' + y;
+	var o = $(id);
+	if(state === "true" || state === "1" || state === true)
+	{
+		o.css('background-color', 'rgba(0,0,0,0.1)');
+	}
+	else
+	{
+		o.css('background-color', 'rgba(255,0,0,200)');
+	}
+}
+
+function setAllTdFalse()
+{
+	for(var x=0; x < gridWidth; ++x) {
+		for(var y=0; y < gridHeight; ++y) {
+			setTdState(x, y, false);
+		}
+	}
+}
+
 function wsOnOpen() {
 	console.log("Connection established!");
 	checkUi();
 }
 function wsOnError(er) {
 	console.log('WebSocket Error ' + er);
+	checkUi();
 }
 function wsOnMessage(ev) {
 	console.log('Server: ' + ev.data);
+	var obj = JSON.parse(ev.data);
+	if(obj.State === "Ok")
+	{
+		setTdState(obj.x, obj.y, true);
+	}
+	else
+	{
+		setTdState(obj.x, obj.y, false);
+	}
 }
 function wsOnClose(ev) {
-	checkUi();
+	checkUi(); ws = null;
+	setAllTdFalse();
 }
-
 function wsIsOpen() {
 	return (ws != null && ws.readyState == 1);
 }
@@ -127,15 +159,8 @@ function checkUi()
 
 function initializeUi()
 {
-	mb();
 	objTable = $('#grid20x10');
 	createGridTable();
-}
-
-function mb() 
-{
-	maxBrightness = $('#lineMaxBrightness').val();
-	return maxBrightness;
 }
 
 $( document ).ready(function() 
@@ -146,10 +171,10 @@ $( document ).ready(function()
 	checkUi();
 	
 	$('#cmdReset').click(function(ev) {
+		setAllTdFalse();
 		if(ws == null) {
 			alert('There is no WebSocket connection!');
-		} else {
-			
+		} else {			
 			var cmd = { "type" : "grid", "data": [] };			
 			for(var x=0; x < gridWidth; ++x) {
 				for(var y=0; y < gridHeight; ++y) {
@@ -164,14 +189,14 @@ $( document ).ready(function()
 	});
 	
 	$('#cmdRandom').click(function(ev) {
+		setAllTdFalse();
 		for(var x=0; x < gridWidth; ++x)
 		{
       for(var y=0; y < gridHeight; ++y)
 		  {
-				var step = 255.0 / parseInt(mb());
-				var red   = step * parseInt(randomColorPart());
-				var green = step * parseInt(randomColorPart());
-				var blue  = step * parseInt(randomColorPart());
+				var red   = parseInt(randomColorPart());
+				var green = parseInt(randomColorPart());
+				var blue  = parseInt(randomColorPart());
 			  				
 				var id = '#colorPicker_' + x + '_' + y;
 				var $box = $(id);				

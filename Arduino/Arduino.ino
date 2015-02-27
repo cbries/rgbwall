@@ -3,7 +3,11 @@
  * Website: www.christianbenjaminries.de
  * GitHub: https://github.com/cbries
  * License: MIT, see https://github.com/cbries
- *  
+ *
+ * 2015-02-27 Christian Benjamin Ries
+ *   - correct rgb mapping of serial received data
+ *   - functionality for setting max brightness over the serial communication, i.e. "b%03d"
+ * 
  * 2015-02-26 Christian Benjamin Ries
  *   - the serial connection has been modified and works more stable
  *
@@ -36,7 +40,7 @@
 #define SPI_SEND(v) spi_transfer(v)
 #define SPI_STOP PORTB |= ( 1 << SPI_LATCH_PIN )
 
-#define MAX_BRIGHTNESS 15 // 0...50 above 50 looks bad
+volatile uint8_t MAX_BRIGHTNESS = 15; // 0...50 above 50 looks bad
 
 #define __TIMER1_MAX 0xFFFF // 16 bit CTR
 #define __TIMER1_CNT 0x0155 // absoluter Grenzwert: 0x0150, > 0x0170 (little flicker)
@@ -370,6 +374,22 @@ void checkSerial()
   {
     String sbuf(buf);
   
+    if(sbuf[0] == 'b' && index == 5)
+    {
+      String s("");
+      s = sbuf.substring(1, 4);
+      uint8_t before = MAX_BRIGHTNESS;
+      MAX_BRIGHTNESS = s.toInt();
+      
+      Serial.println(" OK ");
+      
+      for(uint8_t y=0; y < HEIGHT; ++y) {
+        for(uint8_t x=0; x < WIDTH; ++x) {
+          RgbValues[y][x][0] = map(RgbValues[y][x][0], 0, before, 0, MAX_BRIGHTNESS);
+        }
+      }
+    }
+    
     if(index == 14)
     {
       String s("");
@@ -379,11 +399,18 @@ void checkSerial()
       s = sbuf.substring(7, 10);  int GREEN = s.toInt();
       s = sbuf.substring(10, 13); int BLUE = s.toInt();
             
-      RgbValues[y][x][0] = RED / MAX_BRIGHTNESS;
-      RgbValues[y][x][1] = GREEN / MAX_BRIGHTNESS;
-      RgbValues[y][x][2] = BLUE / MAX_BRIGHTNESS;
+      RgbValues[y][x][0] = map(RED, 0, 255, 0, MAX_BRIGHTNESS);
+      RgbValues[y][x][1] = map(GREEN, 0, 255, 0, MAX_BRIGHTNESS);
+      RgbValues[y][x][2] = map(BLUE, 0, 255, 0, MAX_BRIGHTNESS);
+
+      //String ss = "XY: "; ss.concat(x); ss.concat(", "); ss.concat(y);
+      //       ss.concat(" -> RGB: ");
+      //       ss.concat(RgbValues[y][x][0]); ss.concat(", ");
+      //       ss.concat(RgbValues[y][x][1]); ss.concat(", ");
+      //       ss.concat(RgbValues[y][x][2]);
+      //Serial.print(ss);
       
-      Serial.println("OK");
+      Serial.println(" OK ");
     }
     
     index = 0;

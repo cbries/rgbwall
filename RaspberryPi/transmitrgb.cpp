@@ -57,6 +57,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <termios.h>
+#include <limits.h>
 
 struct Data
 {
@@ -66,6 +67,9 @@ struct Data
 		r = 0; g = 0; b = 0; 
 		timeoutSecs = 1;
 		timeoutMsecs = 0;
+		endless = false;
+		dobrightness = false;
+		brightness = 15;
 	}
 	std::string devname;
 	uint8_t x, y;
@@ -78,6 +82,9 @@ struct Data
 	}
 	uint8_t timeoutSecs;
 	uint8_t timeoutMsecs;
+	bool endless;
+	bool dobrightness;
+	int brightness;
 };
 
 bool parseOptions(int argc, char **argv, Data & data)
@@ -86,13 +93,15 @@ bool parseOptions(int argc, char **argv, Data & data)
 
 	for(int i=2; i < argc; ++i)
 	{
-		if(!strcmp(argv[i], "-x"))      { data.x = atoi(argv[i+1]); }
-		else if(!strcmp(argv[i], "-y")) { data.y = atoi(argv[i+1]); } 
-		else if(!strcmp(argv[i], "-r")) { data.r = atoi(argv[i+1]); }
-		else if(!strcmp(argv[i], "-g")) { data.g = atoi(argv[i+1]); }
-		else if(!strcmp(argv[i], "-b")) { data.b = atoi(argv[i+1]); }
-		else if(!strcmp(argv[i], "-ts")) { data.timeoutSecs = atoi(argv[i+1]); }
+		if(!strcmp(argv[i], "-x"))        { data.x = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-y"))   { data.y = atoi(argv[i+1]); } 
+		else if(!strcmp(argv[i], "-r"))   { data.r = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-g"))   { data.g = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-b"))   { data.b = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-ts"))  { data.timeoutSecs = atoi(argv[i+1]); }
 		else if(!strcmp(argv[i], "-tms")) { data.timeoutMsecs = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-t"))   { data.endless = true; }
+		else if(!strcmp(argv[i], "-br"))  { data.dobrightness = true; data.brightness = atoi(argv[i+1]); }
 		else { }
 	}
 	return true;
@@ -102,6 +111,9 @@ void showUsage()
 {
 	std::cout << "Usage: transmitgrb DEVNAME -x INT -y INT -r INT -g INT -b INT" << std::endl;
 	std::cout << " Optional: -ts UINT8 -tms UINT8  (for setting a timeout)" << std::endl; 
+	std::cout << "           -t  (endless loop for setting the value)" << std::endl;
+
+	std::cout << "Usage: transmitrgb DEVNAME -br 0-255" << std::endl;
 }
 
 /**
@@ -225,11 +237,14 @@ std::string& trim(
  */
 int main(int argc, char **argv)
 {
-	if(argc < 12)
+	if(argc != 4)
 	{
-		showUsage();
-		return 1;
-	} 
+		if(argc < 12)
+		{
+			showUsage();
+			return 1;
+		}
+	}
 
 	Data data;
 	bool res = parseOptions(argc, argv, data); 
@@ -239,7 +254,7 @@ int main(int argc, char **argv)
 	}
 
 	int fd = open(data.devname.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
-	if(fd == -1) { return 2; }	
+	if(fd == -1) { perror("open() failed"); return 2; }	
 
 	Extern::set_interface_attribs(fd, B115200, 0);
 	Extern::set_blocking(fd, 0);
@@ -250,32 +265,44 @@ int main(int argc, char **argv)
 	struct timeval tv;
 
 	bool ok = false;
+	int maxTries = (data.endless ? 1024 : 50);
 	int tryCounter = 0;
-	while(!ok && tryCounter < 50) 
+	while(!ok && tryCounter < maxTries) 
 	{
-		char buf[32] = { '\0' };
-		snprintf(buf, 32, "%02d%02d%03d%03d%03d\n", 
-			data.x, data.y, data.r, data.g, data.b);
-		std::cout << tryCounter << " -> Trying: " << buf;
+		#define MAXLEN 128
+		char buf[MAXLEN] = { '\0' };
+
+		if(data.dobrightness)
+		{
+			snprintf(buf, MAXLEN, "b%03d\n", data.brightness);
+		}
+		else
+		{
+			snprintf(buf, MAXLEN, "%02d%02d%03d%03d%03d\n", 
+				data.x, data.y, data.r, data.g, data.b);
+		}
+
 		ssize_t n = write(fd, buf, strlen(buf));
+		if(buf[strlen(buf)-1] == '\n')
+            buf[strlen(buf)-1] = '\0';
+		std::cout << tryCounter << " -> Trying: " << buf;
 		usleep ((n + 25) * 100);
-		std::cout << "Transmitted bytes: " << n << std::endl;
+		std::cout << ", Bytes: " << n << std::endl;
 		if(n < 0) { perror("write()"); continue; }
 		++tryCounter;
 
 		FD_ZERO(&rfds);
-        	FD_SET(fd, &rfds);
+        FD_SET(fd, &rfds);
 
 		tv.tv_sec = data.timeoutSecs;
-           	tv.tv_usec = data.timeoutMsecs;
+		tv.tv_usec = data.timeoutMsecs;
 	
 		int retval = select(fd+1, &rfds, NULL, NULL, &tv);
-		std::cout << "select(): " << retval << std::endl;
 		if (retval == -1) perror("select() for reading");
 		else if(retval)
 		{
 			buf[0] = '\0';
-			n = read(fd, buf, 32);
+			n = read(fd, buf, MAXLEN);
 			buf[n] = '\0';
 			std::string sbuf(buf);
 			Extern::trim(sbuf);
@@ -286,16 +313,19 @@ int main(int argc, char **argv)
 			}
 			if(ok)
 			{
+				buf[n-2] = '\0';
 				std::cout << "Result: " << buf << std::endl;
 			}
 		}
 		else
 		{
-			std::cout << "We should try it again!" << std::endl;
+			//std::cout << "We should try it again!" << std::endl;
 		}
 	}
 
-	std::cout << "Data transmitted: " << data.toString() << std::endl;
+	if(!data.dobrightness) {
+		std::cout << "Data transmitted: " << data.toString() << std::endl;
+	}
 
 	return 0;
 }

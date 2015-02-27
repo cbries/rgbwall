@@ -13,21 +13,39 @@
 </head>
 <body>
 
+<div class="outer">
+ <div class="inner">
+
 <div class="connect">
 	<input type="button" value="Connect" id="cmdConnect">
-	&nbsp;&nbsp;Address: <input type="text" name="lineAddress" id="lineAddress" value="ws://127.0.0.1:10010">
+	&nbsp;&nbsp;
+	Address: 
+	<select name="lineAddress" id="lineAddress">
+	 <option>ws://192.168.137.200:1337</option>
+	 <option>ws://raspberry:1337</option>
+	 <option>ws://127.0.0.1:10010</option>
+  </select>
 </div>
 <div class="disconnect">
 	<input type="button" value="Disconnect" id="cmdDisconnect">
 </div>
 
-<input type="text" id="lineMaxBrightness" class="lineMaxBrightness" value="15" size="4" maxlength="3">
-
 <div id="gridPart">
 	<h2>RGB LED Grid</h2>
-	<div id="grid20x10"></div>
+	<div class="grid20x10outer">
+		<div id="grid20x10" class="grid20x10"></div>
+	</div>
 	<input type="button" value="Reset" id="cmdReset"> &nbsp; 
 	<input type="button" value="Random" id="cmdRandom">
+</div>
+
+  <div class="copyright">
+		Copyright &copy; 2015 Christian Benjamin Ries<br>
+		License: MIT, Source: <a href="https://github.com/cbries/rgbwall">https://github.com/cbries/rgbwall</a><br>
+		Website: <a href="http://www.christianbenjaminries.de">www.christianbenjaminries.de</a>
+	</div>
+
+ </div>
 </div>
 </body>
 </html>
