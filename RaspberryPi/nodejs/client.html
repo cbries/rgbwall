@@ -9,7 +9,15 @@
 </head>
 <body>
 
-<input type="button" value="Connect" id="cmdConnect">
+<div class="connect">
+	<input type="button" value="Connect" id="cmdConnect">
+	&nbsp;&nbsp;Address: <input type="text" name="lineAddress" id="lineAddress" value="ws://127.0.0.1:10010">
+</div>
+<div class="disconnect">
+	<input type="button" value="Disconnect" id="cmdDisconnect">
+</div>
+
+<input type="text" id="lineMaxBrightness" class="lineMaxBrightness" value="15" size="4" maxlength="3">
 
 <div id="gridPart">
 	<h2>RGB LED Grid</h2>

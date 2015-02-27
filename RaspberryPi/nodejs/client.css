@@ -3,3 +3,12 @@ table.grid { }
 	table.grid td {
 		border: 1px solid black;
 	}
+div.connect {
+	display: inline;
+}
+div.disconnect {
+	display: inline;
+}
+input.lineMaxBrightness {
+	text-align: center;
+}
