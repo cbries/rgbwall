@@ -10,5 +10,6 @@ Follow some trivial manual on the web, e.g. http://weworkweplay.com/play/raspber
 # Requirements
 - `npm install websocket`
 - `npm install http`  (should already be installed, it's a core component)
+- `npm install sprintf`
 - `npm install sprintf-js`
 
