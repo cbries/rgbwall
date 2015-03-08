@@ -86,7 +86,7 @@ wsServer.on('request', function(request)
 	connections.push(newConnection);
 
     	newConnection.on('message', function(message) {
-    		console.log(message); 
+    		//console.log(message); 
 		try {
 			var json = JSON.parse(message.utf8Data);
 		} catch (e) {
@@ -94,38 +94,48 @@ wsServer.on('request', function(request)
 			return ;
 		} 
 
+		var DEVICE = "/dev/ttyACM0";
+
 		if(json.type === 'single')
 		{
 			var osingle = json.data;
-			var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500 -t"
+			var cmd = sprintf("../transmitrgb " + DEVICE + " -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500 -t"
 					, parseInt(osingle.x)
 					, parseInt(osingle.y)
 					, parseInt(osingle.red)
 					, parseInt(osingle.green)
 					, parseInt(osingle.blue));
-					
-			console.log("Cmd: " + cmd);
-			var child = exec(cmd, execLog);
-			sendOk(newConnection, osingle.x, osingle.y);
+			
+			try {		
+				console.log("Cmd: " + cmd);
+				var child = exec(cmd, execLog);
+				sendOk(newConnection, osingle.x, osingle.y);
+			} catch(err) {
+				sendOk(newConnection, -1 * parseInt(osingle.x), -1 * parseInt(osingle.y));
+			}
 		}
 		else if(json.type === 'grid')
 		{
 			var ogrid = json.data;
 			for(var i=0; i < ogrid.length; ++i)
 			{
-				var data = ogrid[i];
-				if(data !== null && typeof(data) !== 'undefined')
-				{
-					var cmd = sprintf("../transmitrgb /dev/ttyACM0 -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500 -t"
-						, parseInt(data.x)
-						, parseInt(data.y)
-						, parseInt(data.red)
-						, parseInt(data.green)
-						, parseInt(data.blue));
+				try {
+					var data = ogrid[i];
+					if(data !== null && typeof(data) !== 'undefined')
+					{
+						var cmd = sprintf("../transmitrgb " + DEVICE + " -x %d -y %d -r %d -g %d -b %d -ts 0 -tms 500 -t"
+							, parseInt(data.x)
+							, parseInt(data.y)
+							, parseInt(data.red)
+							, parseInt(data.green)
+							, parseInt(data.blue));
 
-					console.log("Cmd: " + cmd);
-					var child = exec(cmd, execLog);
-					sendOk(newConnection, data.x, data.y);
+						console.log("Cmd: " + cmd);
+						var child = exec(cmd, execLog);
+						sendOk(newConnection, data.x, data.y);
+					}
+				} catch(err) {
+					sendOk(newConnection, -1 * parseInt(data.x), -1 * parseInt(data.y));
 				}
 			}
 		}

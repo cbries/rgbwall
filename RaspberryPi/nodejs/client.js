@@ -55,7 +55,7 @@ function createGridTable()
 			content += '<div id="colorPicker_'+x+'_'+y+'" class="colorPicker">';
 			content +=   '<a class="color"><div class="colorInner"></div></a>';
 			content +=   '<div class="track"></div>';
-		  content +=   '<ul class="dropdown"><li></li></ul>';
+			content +=   '<ul class="dropdown"><li></li></ul>';
 			content +=   '<input type="hidden" class="colorInput"/>';
 			content += '</div>';
 			content += '</td>';
@@ -97,6 +97,8 @@ function setTdState(x, y, state)
 {
 	var id = '#td_' + x + '_' + y;
 	var o = $(id);
+	if(o == null || typeof(o) === 'undefined') 
+		return;
 	if(state === "true" || state === "1" || state === true)
 	{
 		o.css('background-color', 'rgba(0,0,0,0.1)');
@@ -127,6 +129,11 @@ function wsOnError(er) {
 function wsOnMessage(ev) {
 	console.log('Server: ' + ev.data);
 	var obj = JSON.parse(ev.data);
+	if(parseInt(obj.x) < 0 || parseInt(obj.y) < 0)
+	{
+		console.log('Target device is not available.');
+		return;
+	}
 	if(obj.State === "Ok")
 	{
 		setTdState(obj.x, obj.y, true);
