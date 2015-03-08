@@ -8,6 +8,7 @@
 /*
  * Build: $ g++ -O3 -o transmitrgb transmitrgb.cpp -std=c++0x
  * Usage: $ transmitrgb /dev/ttyACM0 -x 00 -y 00 -r 23 -g 25 -b 65 [-ts 0 -tms 500]
+ * Usage: $ transmitrgb /dev/ttyACM0 -br 0-255  
  *
  *  IMPORTANT:
  * ###################
@@ -232,6 +233,73 @@ std::string& trim(
 }
 } // namespace Extern
 
+int waitForOk(int fd, const Data *pdata)
+{
+	fd_set rfds;
+    struct timeval tv;
+
+	FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+
+    tv.tv_sec = pdata->timeoutSecs;
+    tv.tv_usec = pdata->timeoutMsecs;
+
+	return select(fd+1, &rfds, NULL, NULL, &tv);
+}
+
+bool sendMessage(int fd, std::string msg, const Data *pdata)
+{
+	bool ok = false;
+	int maxTries = (pdata->endless ? 1024 : 50);
+	int tryCounter = 0;
+	while(!ok && tryCounter < maxTries)
+    {
+		ssize_t n = write(fd, msg.c_str(), msg.length());
+		std::string msg2 = msg; 
+		msg2 = Extern::trim(msg2);
+        std::cout << tryCounter << " -> Trying: " << msg2;
+        
+		usleep ((n + 25) * 100);
+        std::cout << ", Bytes: " << n << std::endl;
+        
+		if(n < 0) { perror("write()"); continue; }
+        
+		++tryCounter;
+
+		int retval = waitForOk(fd, pdata);
+        if (retval == -1)
+        {
+            perror("select() for reading");
+        }
+        else if(retval)
+        {
+			#define MAXLEN 128
+			char buf[MAXLEN] = { '\0' };
+            
+            n = read(fd, buf, MAXLEN);
+            buf[n] = '\0';
+            std::string sbuf(buf);
+            Extern::trim(sbuf);
+            if(n != 0)
+            {
+                std::size_t found = sbuf.find("OK");
+                ok = found != std::string::npos;
+            }
+            if(ok)
+            {
+                buf[n-2] = '\0';
+                std::cout << "Result: " << buf << std::endl;
+				return true;
+            }
+        }
+        else
+        {
+            //std::cout << "We should try it again!" << std::endl;
+        }		
+	}
+	return false;
+}
+
 /**
  *
  */
@@ -261,66 +329,23 @@ int main(int argc, char **argv)
 
 	std::cout << "Device opened: " << data.devname.c_str() << std::endl;
 
-	fd_set rfds;
-	struct timeval tv;
+	#define MAXLEN 128
+    char buf[MAXLEN] = { '\0' };
+	if(data.dobrightness)
+    {
+    	snprintf(buf, MAXLEN, "b%03d\n", data.brightness);
+    }
+	else
+    {
+    	snprintf(buf, MAXLEN, "%02d%02d%03d%03d%03d\n",
+        		 data.x, data.y, data.r, data.g, data.b);
+    }
 
-	bool ok = false;
-	int maxTries = (data.endless ? 1024 : 50);
-	int tryCounter = 0;
-	while(!ok && tryCounter < maxTries) 
+	res = sendMessage(fd, "z\n", &data);
+	if(res)
 	{
-		#define MAXLEN 128
-		char buf[MAXLEN] = { '\0' };
-
-		if(data.dobrightness)
-		{
-			snprintf(buf, MAXLEN, "b%03d\n", data.brightness);
-		}
-		else
-		{
-			snprintf(buf, MAXLEN, "%02d%02d%03d%03d%03d\n", 
-				data.x, data.y, data.r, data.g, data.b);
-		}
-
-		ssize_t n = write(fd, buf, strlen(buf));
-		if(buf[strlen(buf)-1] == '\n')
-            buf[strlen(buf)-1] = '\0';
-		std::cout << tryCounter << " -> Trying: " << buf;
-		usleep ((n + 25) * 100);
-		std::cout << ", Bytes: " << n << std::endl;
-		if(n < 0) { perror("write()"); continue; }
-		++tryCounter;
-
-		FD_ZERO(&rfds);
-        FD_SET(fd, &rfds);
-
-		tv.tv_sec = data.timeoutSecs;
-		tv.tv_usec = data.timeoutMsecs;
-	
-		int retval = select(fd+1, &rfds, NULL, NULL, &tv);
-		if (retval == -1) perror("select() for reading");
-		else if(retval)
-		{
-			buf[0] = '\0';
-			n = read(fd, buf, MAXLEN);
-			buf[n] = '\0';
-			std::string sbuf(buf);
-			Extern::trim(sbuf);
-			if(n != 0)
-			{
-				std::size_t found = sbuf.find("OK");
-				ok = found != std::string::npos;
-			}
-			if(ok)
-			{
-				buf[n-2] = '\0';
-				std::cout << "Result: " << buf << std::endl;
-			}
-		}
-		else
-		{
-			//std::cout << "We should try it again!" << std::endl;
-		}
+		res = sendMessage(fd, buf, &data);
+		res = sendMessage(fd, "z\n", &data);
 	}
 
 	if(!data.dobrightness) {
