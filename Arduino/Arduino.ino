@@ -131,6 +131,14 @@ void setup_timer1_ovf(void)
   sei(); 
 }
 
+bool __timerState = true;
+inline bool isTimerEnabled() { return __timerState; } 
+
+//! used for enabling Timer1
+void enableTimer() { TIMSK1 |= (1<<TOIE1); sei(); __timerState = true; }
+//! used for disabling Timer1
+void disableTimer() { TIMSK1 &= ~(1<<TOIE1); __timerState = false; }
+
 #define DEVICES 4
 #define DEVICES_ARRAY_SIZES 4
 #define ROWS 8
@@ -374,6 +382,20 @@ void checkSerial()
   {
     String sbuf(buf);
   
+    if(sbuf[0] == 'z' && index == 2)
+    {
+      if(isTimerEnabled())
+      {
+        disableTimer();
+      }
+      else
+      {
+        enableTimer();
+      }
+      
+      Serial.println(" OK ");
+    }
+  
     if(sbuf[0] == 'b' && index == 5)
     {
       String s("");
@@ -429,6 +451,7 @@ void initGrid()
 } 
 void runGrid() 
 {
+  
   for(uint8_t x = 0; x < WIDTH; ++x) {
     for(uint8_t y = 0; y < HEIGHT; ++y) {
 
