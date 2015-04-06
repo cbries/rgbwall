@@ -5,6 +5,9 @@
  * License: MIT, see https://github.com/cbries
  *
  * 2015-04-06 Christian Benjamin Ries
+ *   - store recent mode in EEPROM
+ *
+ * 2015-04-06 Christian Benjamin Ries
  *   - added command for switching between default modes
  *      'mA'  run in grid mode which allows setting of individual led values
  *      'mB'  randmom leds
@@ -34,6 +37,8 @@
  *   - refactoring
  *   - performance improved
  */
+
+#include <EEPROM.h>
 
 #define SPI_CLOCK 13
 #define SPI_LATCH 10
@@ -208,6 +213,9 @@ ISR(TIMER1_OVF_vect)
   }
 }
 
+int RUNMODE_EEPROM_ADDR = 0x00;
+volatile byte RUNMODE = 'C';
+
 void setup(void) 
 {
   pinMode(SPI_CLOCK, OUTPUT);
@@ -226,6 +234,8 @@ void setup(void)
   Serial.println("*** Initialized ***");
  
   randomSeed(analogRead(0));
+ 
+  RUNMODE = EEPROM.read(RUNMODE_EEPROM_ADDR);
      
   setup_hardware_spi();
   memset((void*)brightness, 0, sizeof(brightness));  
@@ -279,8 +289,6 @@ inline void copyBuffer()
   }
   ptrBrightnessUSING = ptrBrightness;
 }
-
-volatile byte RUNMODE = 'C';
 
 void loop(void) 
 {
@@ -368,7 +376,8 @@ void checkSerial()
   
     if(sbuf[0] == 'm' && index == 3)
     {
-      RUNMODE = sbuf[1];
+      RUNMODE = sbuf[1];      
+      EEPROM.write(RUNMODE_EEPROM_ADDR, RUNMODE);
       Serial.println(" OK ");
     }
   
