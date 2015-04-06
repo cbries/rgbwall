@@ -8,6 +8,9 @@ var gridHeight = 10;
 var tableWHdelta = 40;
 var tableWidth = gridWidth * tableWHdelta;
 var tableHeight = gridHeight * tableWHdelta;
+//var objOrientation;
+var objThumbnail;
+var objThumbnailFile;
 
 var wsTargetAddress = "ws://192.168.137.200:1337";
 var ws = null;
@@ -42,8 +45,10 @@ function sendColor(x, y, red, green, blue)
 
 function createGridTable() 
 {
+	objTable.html("");
+
 	var ids = [ ];	
-	var content = '<table class="grid" width="'+tableWidth+'" height="'+tableHeight+'">'
+	var content = '<table class="grid">'; //width="'+tableWidth+'" height="'+tableHeight+'">'
 	for(var y=0; y < gridHeight; ++y)
 	{
 		content += '<tr>';
@@ -167,7 +172,36 @@ function checkUi()
 function initializeUi()
 {
 	objTable = $('#grid20x10');
+//	objOrientation = $('#thumbnailOrientation');
+	objThumbnail = $('#thumbnail');
+	objThumbnailFile = $('#thumbnailFile');
 	createGridTable();
+
+//	objOrientation.on('change', changeOrientation);
+	objThumbnailFile.on('change', loadThumbnailFile);
+}
+
+//function changeOrientation(ev)
+//{
+//	console.log(ev);	
+//
+//	var __w = gridWidth;
+//	gridWidth = gridHeight;
+//	gridHeight = __w;
+//
+//	createGridTable();	
+//}
+
+function loadThumbnailFile(ev)
+{
+	var files = ev.target.files;
+	if (FileReader && files && files.length) {
+        var fr = new FileReader();
+		fr.onload = function () {
+			objThumbnail.attr("src", fr.result);
+        }
+        fr.readAsDataURL(files[0]);
+    }
 }
 
 $( document ).ready(function() 
@@ -176,7 +210,7 @@ $( document ).ready(function()
 
 	initializeUi();	
 	checkUi();
-	
+
 	$('#cmdReset').click(function(ev) {
 		setAllTdFalse();
 		if(ws == null) {
