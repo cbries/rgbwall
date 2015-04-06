@@ -4,6 +4,14 @@
  * GitHub: https://github.com/cbries
  * License: MIT, see https://github.com/cbries
  *
+ * 2015-04-06 Christian Benjamin Ries
+ *   - added command for switching between default modes
+ *      'mA'  run in grid mode which allows setting of individual led values
+ *      'mB'  randmom leds
+ *      'mC'  color wave
+ *      'mD'  rainbow
+ *      'mE'  show Super Mario's Goomba :)
+ *
  * 2015-02-27 Christian Benjamin Ries
  *   - correct rgb mapping of serial received data
  *   - functionality for setting max brightness over the serial communication, i.e. "b%03d"
@@ -225,48 +233,6 @@ void setup(void)
   setup_timer1_ovf();
 }
 
-void runaround()
-{ 
-  static byte n = 250;
-  static byte r = 0;
-  static byte g = MAX_BRIGHTNESS;
-  static byte b = 0;
-  
-  r = random(MAX_BRIGHTNESS);
-  g = random(MAX_BRIGHTNESS);
-  b = random(MAX_BRIGHTNESS);
-  
-  for(byte y=0; y < HEIGHT; ++y)
-  {
-    for(byte x=0; x < WIDTH; ++x)
-    {
-      memset((void*)brightness, 0, sizeof(brightness));      
-      set_led_rgb(x, y, r, g, b);
-      delay(n);
-    }
-    
-    ++y;
-    
-    for(int x=WIDTH-1; x != -1; --x)
-    {
-      memset((void*)brightness, 0, sizeof(brightness));
-      set_led_rgb(x, y, r, g, b);
-      delay(n);
-    }
-  }
-  
-  for(byte y=HEIGHT-2; y != 0; --y)
-  {
-    memset((void*)brightness, 0, sizeof(brightness));
-    set_led_rgb(0, y, r, g, b);
-    delay(n);
-  }
-  
-  r = random(MAX_BRIGHTNESS);
-  g = random(MAX_BRIGHTNESS);
-  b = random(MAX_BRIGHTNESS);
-}
-
 void random_leds(void) {
   set_led_hue(
       (byte)(random(WIDTH))
@@ -314,15 +280,19 @@ inline void copyBuffer()
   ptrBrightnessUSING = ptrBrightness;
 }
 
+volatile byte RUNMODE = 'C';
+
 void loop(void) 
 {
-  //for(unsigned int i=0; i < 1000000; ++i) { random_leds(); /*copyBuffer();*/ delay(5); }
-  //for(;;) { color_wave(18); copyBuffer(); delay(75); }
-  //for(;;) { rainbow(); delay(100); }
-  //runaround(); 
-   
   checkSerial();
-  runGrid();
+  switch(RUNMODE)
+  {
+    case 'A': runGrid(); break;
+    case 'B': for(unsigned int i=0; i < 100; ++i) { random_leds(); copyBuffer(); delayMicroseconds(10); } break;
+    case 'C': color_wave(18); copyBuffer(); delayMicroseconds(25); break;
+    case 'D': rainbow(); delayMicroseconds(25); break;
+    case 'E': ShowGoomba(); delayMicroseconds(25); break;
+  }
 }
 
 inline void set_led_red(byte x, byte y, byte red)     { *(ptrBrightness + RED(x, y)) = red; }
@@ -396,6 +366,12 @@ void checkSerial()
       Serial.println(" OK ");
     }
   
+    if(sbuf[0] == 'm' && index == 3)
+    {
+      RUNMODE = sbuf[1];
+      Serial.println(" OK ");
+    }
+  
     if(sbuf[0] == 'b' && index == 5)
     {
       String s("");
@@ -449,9 +425,9 @@ void initGrid()
     }
   }
 } 
+
 void runGrid() 
 {
-  
   for(uint8_t x = 0; x < WIDTH; ++x) {
     for(uint8_t y = 0; y < HEIGHT; ++y) {
 
@@ -466,18 +442,20 @@ void runGrid()
     }
   }
   delayMicroseconds(100);
-/*
-        // Shows a Goomba, see https://raw.githubusercontent.com/cbries/rgbwall/master/Photos,%20Images,%20Videos/Goomba01.jpg
-	set_led_rgb(0, 0, 13, 9, 7);	set_led_rgb(1, 0, 13, 5, 0);	set_led_rgb(2, 0, 8, 3, 0);	set_led_rgb(3, 0, 5, 2, 1);	set_led_rgb(4, 0, 5, 4, 4);	set_led_rgb(5, 0, 7, 3, 0);	set_led_rgb(6, 0, 10, 4, 0);	set_led_rgb(7, 0, 13, 5, 0);	set_led_rgb(8, 0, 13, 5, 0);	set_led_rgb(9, 0, 13, 5, 0);	set_led_rgb(10, 0, 13, 5, 0);	set_led_rgb(11, 0, 13, 5, 0);	set_led_rgb(12, 0, 11, 4, 0);	set_led_rgb(13, 0, 8, 3, 0);	set_led_rgb(14, 0, 5, 4, 4);	set_led_rgb(15, 0, 5, 3, 1);	set_led_rgb(16, 0, 7, 2, 0);	set_led_rgb(17, 0, 13, 5, 0);	set_led_rgb(18, 0, 13, 8, 5);	set_led_rgb(19, 0, 14, 11, 10);
-	set_led_rgb(0, 1, 13, 5, 0);	set_led_rgb(1, 1, 13, 5, 0);	set_led_rgb(2, 1, 13, 5, 0);	set_led_rgb(3, 1, 13, 6, 2);	set_led_rgb(4, 1, 13, 12, 10);	set_led_rgb(5, 1, 2, 2, 2);	set_led_rgb(6, 1, 5, 2, 0);	set_led_rgb(7, 1, 13, 5, 0);	set_led_rgb(8, 1, 13, 5, 0);	set_led_rgb(9, 1, 13, 5, 0);	set_led_rgb(10, 1, 13, 5, 0);	set_led_rgb(11, 1, 13, 5, 0);	set_led_rgb(12, 1, 7, 3, 0);	set_led_rgb(13, 1, 0, 0, 0);	set_led_rgb(14, 1, 13, 12, 9);	set_led_rgb(15, 1, 13, 8, 4);	set_led_rgb(16, 1, 13, 5, 0);	set_led_rgb(17, 1, 13, 5, 0);	set_led_rgb(18, 1, 13, 5, 0);	set_led_rgb(19, 1, 13, 6, 1);
-	set_led_rgb(0, 2, 13, 5, 0);	set_led_rgb(1, 2, 13, 5, 0);	set_led_rgb(2, 2, 13, 5, 0);	set_led_rgb(3, 2, 13, 6, 2);	set_led_rgb(4, 2, 13, 12, 10);	set_led_rgb(5, 2, 2, 2, 2);	set_led_rgb(6, 2, 0, 0, 0);	set_led_rgb(7, 2, 0, 0, 0);	set_led_rgb(8, 2, 0, 0, 0);	set_led_rgb(9, 2, 0, 0, 0);	set_led_rgb(10, 2, 0, 0, 0);	set_led_rgb(11, 2, 0, 0, 0);	set_led_rgb(12, 2, 0, 0, 0);	set_led_rgb(13, 2, 0, 0, 0);	set_led_rgb(14, 2, 13, 12, 9);	set_led_rgb(15, 2, 13, 8, 4);	set_led_rgb(16, 2, 13, 5, 0);	set_led_rgb(17, 2, 13, 5, 0);	set_led_rgb(18, 2, 13, 5, 0);	set_led_rgb(19, 2, 13, 6, 2);
-	set_led_rgb(0, 3, 13, 5, 0);	set_led_rgb(1, 3, 13, 5, 0);	set_led_rgb(2, 3, 13, 5, 0);	set_led_rgb(3, 3, 13, 6, 2);	set_led_rgb(4, 3, 13, 12, 10);	set_led_rgb(5, 3, 2, 2, 2);	set_led_rgb(6, 3, 2, 1, 1);	set_led_rgb(7, 3, 5, 4, 4);	set_led_rgb(8, 3, 7, 3, 0);	set_led_rgb(9, 3, 8, 3, 0);	set_led_rgb(10, 3, 8, 3, 0);	set_led_rgb(11, 3, 5, 4, 4);	set_led_rgb(12, 3, 3, 2, 2);	set_led_rgb(13, 3, 0, 0, 0);	set_led_rgb(14, 3, 13, 12, 9);	set_led_rgb(15, 3, 13, 8, 4);	set_led_rgb(16, 3, 13, 5, 0);	set_led_rgb(17, 3, 13, 5, 0);	set_led_rgb(18, 3, 13, 5, 0);	set_led_rgb(19, 3, 13, 5, 0);
-	set_led_rgb(0, 4, 13, 5, 0);	set_led_rgb(1, 4, 13, 5, 0);	set_led_rgb(2, 4, 13, 5, 0);	set_led_rgb(3, 4, 13, 6, 2);	set_led_rgb(4, 4, 13, 12, 10);	set_led_rgb(5, 4, 2, 2, 2);	set_led_rgb(6, 4, 5, 4, 4);	set_led_rgb(7, 4, 13, 12, 10);	set_led_rgb(8, 4, 13, 5, 0);	set_led_rgb(9, 4, 13, 5, 0);	set_led_rgb(10, 4, 13, 5, 0);	set_led_rgb(11, 4, 13, 12, 10);	set_led_rgb(12, 4, 8, 7, 6);	set_led_rgb(13, 4, 0, 0, 0);	set_led_rgb(14, 4, 13, 12, 9);	set_led_rgb(15, 4, 13, 8, 4);	set_led_rgb(16, 4, 13, 5, 0);	set_led_rgb(17, 4, 13, 5, 0);	set_led_rgb(18, 4, 13, 5, 0);	set_led_rgb(19, 4, 13, 5, 0);
-	set_led_rgb(0, 5, 13, 5, 0);	set_led_rgb(1, 5, 13, 5, 0);	set_led_rgb(2, 5, 13, 5, 0);	set_led_rgb(3, 5, 13, 6, 2);	set_led_rgb(4, 5, 13, 12, 10);	set_led_rgb(5, 5, 13, 12, 10);	set_led_rgb(6, 5, 13, 12, 10);	set_led_rgb(7, 5, 13, 11, 10);	set_led_rgb(8, 5, 13, 5, 0);	set_led_rgb(9, 5, 13, 5, 0);	set_led_rgb(10, 5, 13, 5, 0);	set_led_rgb(11, 5, 13, 12, 10);	set_led_rgb(12, 5, 13, 12, 10);	set_led_rgb(13, 5, 13, 12, 10);	set_led_rgb(14, 5, 13, 12, 9);	set_led_rgb(15, 5, 13, 8, 4);	set_led_rgb(16, 5, 13, 5, 0);	set_led_rgb(17, 5, 13, 5, 0);	set_led_rgb(18, 5, 13, 5, 0);	set_led_rgb(19, 5, 13, 5, 0);
-	set_led_rgb(0, 6, 13, 5, 0);	set_led_rgb(1, 6, 13, 5, 0);	set_led_rgb(2, 6, 13, 5, 0);	set_led_rgb(3, 6, 13, 5, 1);	set_led_rgb(4, 6, 13, 8, 4);	set_led_rgb(5, 6, 13, 8, 4);	set_led_rgb(6, 6, 13, 8, 4);	set_led_rgb(7, 6, 13, 8, 4);	set_led_rgb(8, 6, 13, 5, 0);	set_led_rgb(9, 6, 13, 5, 0);	set_led_rgb(10, 6, 13, 5, 0);	set_led_rgb(11, 6, 13, 8, 4);	set_led_rgb(12, 6, 13, 8, 4);	set_led_rgb(13, 6, 13, 8, 4);	set_led_rgb(14, 6, 13, 8, 4);	set_led_rgb(15, 6, 13, 6, 2);	set_led_rgb(16, 6, 13, 5, 0);	set_led_rgb(17, 6, 13, 5, 0);	set_led_rgb(18, 6, 13, 5, 0);	set_led_rgb(19, 6, 13, 5, 0);
-	set_led_rgb(0, 7, 13, 5, 0);	set_led_rgb(1, 7, 13, 5, 0);	set_led_rgb(2, 7, 13, 5, 0);	set_led_rgb(3, 7, 13, 5, 0);	set_led_rgb(4, 7, 13, 5, 0);	set_led_rgb(5, 7, 13, 5, 0);	set_led_rgb(6, 7, 13, 5, 0);	set_led_rgb(7, 7, 13, 5, 0);	set_led_rgb(8, 7, 13, 5, 0);	set_led_rgb(9, 7, 13, 5, 0);	set_led_rgb(10, 7, 13, 5, 0);	set_led_rgb(11, 7, 13, 5, 0);	set_led_rgb(12, 7, 13, 5, 0);	set_led_rgb(13, 7, 13, 5, 0);	set_led_rgb(14, 7, 13, 5, 0);	set_led_rgb(15, 7, 13, 5, 0);	set_led_rgb(16, 7, 13, 5, 0);	set_led_rgb(17, 7, 13, 5, 0);	set_led_rgb(18, 7, 13, 5, 0);	set_led_rgb(19, 7, 13, 5, 0);
-	set_led_rgb(0, 8, 13, 5, 0);	set_led_rgb(1, 8, 13, 5, 0);	set_led_rgb(2, 8, 13, 5, 0);	set_led_rgb(3, 8, 13, 5, 0);	set_led_rgb(4, 8, 13, 5, 0);	set_led_rgb(5, 8, 13, 9, 6);	set_led_rgb(6, 8, 13, 12, 10);	set_led_rgb(7, 8, 13, 12, 10);	set_led_rgb(8, 8, 13, 12, 10);	set_led_rgb(9, 8, 13, 12, 10);	set_led_rgb(10, 8, 13, 12, 10);	set_led_rgb(11, 8, 13, 12, 10);	set_led_rgb(12, 8, 13, 12, 10);	set_led_rgb(13, 8, 13, 10, 8);	set_led_rgb(14, 8, 13, 5, 0);	set_led_rgb(15, 8, 13, 5, 0);	set_led_rgb(16, 8, 13, 5, 0);	set_led_rgb(17, 8, 13, 5, 0);	set_led_rgb(18, 8, 13, 5, 0);	set_led_rgb(19, 8, 13, 6, 2);
-	set_led_rgb(0, 9, 14, 11, 8);	set_led_rgb(1, 9, 14, 11, 9);	set_led_rgb(2, 9, 14, 11, 9);	set_led_rgb(3, 9, 13, 10, 7);	set_led_rgb(4, 9, 13, 9, 6);	set_led_rgb(5, 9, 13, 11, 8);	set_led_rgb(6, 9, 13, 12, 10);	set_led_rgb(7, 9, 13, 12, 10);	set_led_rgb(8, 9, 13, 12, 10);	set_led_rgb(9, 9, 13, 12, 10);	set_led_rgb(10, 9, 13, 12, 10);	set_led_rgb(11, 9, 13, 12, 10);	set_led_rgb(12, 9, 13, 12, 10);	set_led_rgb(13, 9, 13, 11, 9);	set_led_rgb(14, 9, 13, 9, 6);	set_led_rgb(15, 9, 14, 10, 7);	set_led_rgb(16, 9, 14, 11, 9);	set_led_rgb(17, 9, 14, 11, 9);	set_led_rgb(18, 9, 14, 11, 9);	set_led_rgb(19, 9, 14, 11, 9);
-	delay(1000);
-*/
 }
+
+void ShowGoomba()
+{
+  // Shows a Goomba, see https://raw.githubusercontent.com/cbries/rgbwall/master/Photos,%20Images,%20Videos/Goomba01.jpg
+  set_led_rgb(0, 0, 13, 9, 7);	set_led_rgb(1, 0, 13, 5, 0);	set_led_rgb(2, 0, 8, 3, 0);	set_led_rgb(3, 0, 5, 2, 1);	set_led_rgb(4, 0, 5, 4, 4);	set_led_rgb(5, 0, 7, 3, 0);	set_led_rgb(6, 0, 10, 4, 0);	set_led_rgb(7, 0, 13, 5, 0);	set_led_rgb(8, 0, 13, 5, 0);	set_led_rgb(9, 0, 13, 5, 0);	set_led_rgb(10, 0, 13, 5, 0);	set_led_rgb(11, 0, 13, 5, 0);	set_led_rgb(12, 0, 11, 4, 0);	set_led_rgb(13, 0, 8, 3, 0);	set_led_rgb(14, 0, 5, 4, 4);	set_led_rgb(15, 0, 5, 3, 1);	set_led_rgb(16, 0, 7, 2, 0);	set_led_rgb(17, 0, 13, 5, 0);	set_led_rgb(18, 0, 13, 8, 5);	set_led_rgb(19, 0, 14, 11, 10);
+  set_led_rgb(0, 1, 13, 5, 0);	set_led_rgb(1, 1, 13, 5, 0);	set_led_rgb(2, 1, 13, 5, 0);	set_led_rgb(3, 1, 13, 6, 2);	set_led_rgb(4, 1, 13, 12, 10);	set_led_rgb(5, 1, 2, 2, 2);	set_led_rgb(6, 1, 5, 2, 0);	set_led_rgb(7, 1, 13, 5, 0);	set_led_rgb(8, 1, 13, 5, 0);	set_led_rgb(9, 1, 13, 5, 0);	set_led_rgb(10, 1, 13, 5, 0);	set_led_rgb(11, 1, 13, 5, 0);	set_led_rgb(12, 1, 7, 3, 0);	set_led_rgb(13, 1, 0, 0, 0);	set_led_rgb(14, 1, 13, 12, 9);	set_led_rgb(15, 1, 13, 8, 4);	set_led_rgb(16, 1, 13, 5, 0);	set_led_rgb(17, 1, 13, 5, 0);	set_led_rgb(18, 1, 13, 5, 0);	set_led_rgb(19, 1, 13, 6, 1);
+  set_led_rgb(0, 2, 13, 5, 0);	set_led_rgb(1, 2, 13, 5, 0);	set_led_rgb(2, 2, 13, 5, 0);	set_led_rgb(3, 2, 13, 6, 2);	set_led_rgb(4, 2, 13, 12, 10);	set_led_rgb(5, 2, 2, 2, 2);	set_led_rgb(6, 2, 0, 0, 0);	set_led_rgb(7, 2, 0, 0, 0);	set_led_rgb(8, 2, 0, 0, 0);	set_led_rgb(9, 2, 0, 0, 0);	set_led_rgb(10, 2, 0, 0, 0);	set_led_rgb(11, 2, 0, 0, 0);	set_led_rgb(12, 2, 0, 0, 0);	set_led_rgb(13, 2, 0, 0, 0);	set_led_rgb(14, 2, 13, 12, 9);	set_led_rgb(15, 2, 13, 8, 4);	set_led_rgb(16, 2, 13, 5, 0);	set_led_rgb(17, 2, 13, 5, 0);	set_led_rgb(18, 2, 13, 5, 0);	set_led_rgb(19, 2, 13, 6, 2);
+  set_led_rgb(0, 3, 13, 5, 0);	set_led_rgb(1, 3, 13, 5, 0);	set_led_rgb(2, 3, 13, 5, 0);	set_led_rgb(3, 3, 13, 6, 2);	set_led_rgb(4, 3, 13, 12, 10);	set_led_rgb(5, 3, 2, 2, 2);	set_led_rgb(6, 3, 2, 1, 1);	set_led_rgb(7, 3, 5, 4, 4);	set_led_rgb(8, 3, 7, 3, 0);	set_led_rgb(9, 3, 8, 3, 0);	set_led_rgb(10, 3, 8, 3, 0);	set_led_rgb(11, 3, 5, 4, 4);	set_led_rgb(12, 3, 3, 2, 2);	set_led_rgb(13, 3, 0, 0, 0);	set_led_rgb(14, 3, 13, 12, 9);	set_led_rgb(15, 3, 13, 8, 4);	set_led_rgb(16, 3, 13, 5, 0);	set_led_rgb(17, 3, 13, 5, 0);	set_led_rgb(18, 3, 13, 5, 0);	set_led_rgb(19, 3, 13, 5, 0);
+  set_led_rgb(0, 4, 13, 5, 0);	set_led_rgb(1, 4, 13, 5, 0);	set_led_rgb(2, 4, 13, 5, 0);	set_led_rgb(3, 4, 13, 6, 2);	set_led_rgb(4, 4, 13, 12, 10);	set_led_rgb(5, 4, 2, 2, 2);	set_led_rgb(6, 4, 5, 4, 4);	set_led_rgb(7, 4, 13, 12, 10);	set_led_rgb(8, 4, 13, 5, 0);	set_led_rgb(9, 4, 13, 5, 0);	set_led_rgb(10, 4, 13, 5, 0);	set_led_rgb(11, 4, 13, 12, 10);	set_led_rgb(12, 4, 8, 7, 6);	set_led_rgb(13, 4, 0, 0, 0);	set_led_rgb(14, 4, 13, 12, 9);	set_led_rgb(15, 4, 13, 8, 4);	set_led_rgb(16, 4, 13, 5, 0);	set_led_rgb(17, 4, 13, 5, 0);	set_led_rgb(18, 4, 13, 5, 0);	set_led_rgb(19, 4, 13, 5, 0);
+  set_led_rgb(0, 5, 13, 5, 0);	set_led_rgb(1, 5, 13, 5, 0);	set_led_rgb(2, 5, 13, 5, 0);	set_led_rgb(3, 5, 13, 6, 2);	set_led_rgb(4, 5, 13, 12, 10);	set_led_rgb(5, 5, 13, 12, 10);	set_led_rgb(6, 5, 13, 12, 10);	set_led_rgb(7, 5, 13, 11, 10);	set_led_rgb(8, 5, 13, 5, 0);	set_led_rgb(9, 5, 13, 5, 0);	set_led_rgb(10, 5, 13, 5, 0);	set_led_rgb(11, 5, 13, 12, 10);	set_led_rgb(12, 5, 13, 12, 10);	set_led_rgb(13, 5, 13, 12, 10);	set_led_rgb(14, 5, 13, 12, 9);	set_led_rgb(15, 5, 13, 8, 4);	set_led_rgb(16, 5, 13, 5, 0);	set_led_rgb(17, 5, 13, 5, 0);	set_led_rgb(18, 5, 13, 5, 0);	set_led_rgb(19, 5, 13, 5, 0);
+  set_led_rgb(0, 6, 13, 5, 0);	set_led_rgb(1, 6, 13, 5, 0);	set_led_rgb(2, 6, 13, 5, 0);	set_led_rgb(3, 6, 13, 5, 1);	set_led_rgb(4, 6, 13, 8, 4);	set_led_rgb(5, 6, 13, 8, 4);	set_led_rgb(6, 6, 13, 8, 4);	set_led_rgb(7, 6, 13, 8, 4);	set_led_rgb(8, 6, 13, 5, 0);	set_led_rgb(9, 6, 13, 5, 0);	set_led_rgb(10, 6, 13, 5, 0);	set_led_rgb(11, 6, 13, 8, 4);	set_led_rgb(12, 6, 13, 8, 4);	set_led_rgb(13, 6, 13, 8, 4);	set_led_rgb(14, 6, 13, 8, 4);	set_led_rgb(15, 6, 13, 6, 2);	set_led_rgb(16, 6, 13, 5, 0);	set_led_rgb(17, 6, 13, 5, 0);	set_led_rgb(18, 6, 13, 5, 0);	set_led_rgb(19, 6, 13, 5, 0);
+  set_led_rgb(0, 7, 13, 5, 0);	set_led_rgb(1, 7, 13, 5, 0);	set_led_rgb(2, 7, 13, 5, 0);	set_led_rgb(3, 7, 13, 5, 0);	set_led_rgb(4, 7, 13, 5, 0);	set_led_rgb(5, 7, 13, 5, 0);	set_led_rgb(6, 7, 13, 5, 0);	set_led_rgb(7, 7, 13, 5, 0);	set_led_rgb(8, 7, 13, 5, 0);	set_led_rgb(9, 7, 13, 5, 0);	set_led_rgb(10, 7, 13, 5, 0);	set_led_rgb(11, 7, 13, 5, 0);	set_led_rgb(12, 7, 13, 5, 0);	set_led_rgb(13, 7, 13, 5, 0);	set_led_rgb(14, 7, 13, 5, 0);	set_led_rgb(15, 7, 13, 5, 0);	set_led_rgb(16, 7, 13, 5, 0);	set_led_rgb(17, 7, 13, 5, 0);	set_led_rgb(18, 7, 13, 5, 0);	set_led_rgb(19, 7, 13, 5, 0);
+  set_led_rgb(0, 8, 13, 5, 0);	set_led_rgb(1, 8, 13, 5, 0);	set_led_rgb(2, 8, 13, 5, 0);	set_led_rgb(3, 8, 13, 5, 0);	set_led_rgb(4, 8, 13, 5, 0);	set_led_rgb(5, 8, 13, 9, 6);	set_led_rgb(6, 8, 13, 12, 10);	set_led_rgb(7, 8, 13, 12, 10);	set_led_rgb(8, 8, 13, 12, 10);	set_led_rgb(9, 8, 13, 12, 10);	set_led_rgb(10, 8, 13, 12, 10);	set_led_rgb(11, 8, 13, 12, 10);	set_led_rgb(12, 8, 13, 12, 10);	set_led_rgb(13, 8, 13, 10, 8);	set_led_rgb(14, 8, 13, 5, 0);	set_led_rgb(15, 8, 13, 5, 0);	set_led_rgb(16, 8, 13, 5, 0);	set_led_rgb(17, 8, 13, 5, 0);	set_led_rgb(18, 8, 13, 5, 0);	set_led_rgb(19, 8, 13, 6, 2);
+  set_led_rgb(0, 9, 14, 11, 8);	set_led_rgb(1, 9, 14, 11, 9);	set_led_rgb(2, 9, 14, 11, 9);	set_led_rgb(3, 9, 13, 10, 7);	set_led_rgb(4, 9, 13, 9, 6);	set_led_rgb(5, 9, 13, 11, 8);	set_led_rgb(6, 9, 13, 12, 10);	set_led_rgb(7, 9, 13, 12, 10);	set_led_rgb(8, 9, 13, 12, 10);	set_led_rgb(9, 9, 13, 12, 10);	set_led_rgb(10, 9, 13, 12, 10);	set_led_rgb(11, 9, 13, 12, 10);	set_led_rgb(12, 9, 13, 12, 10);	set_led_rgb(13, 9, 13, 11, 9);	set_led_rgb(14, 9, 13, 9, 6);	set_led_rgb(15, 9, 14, 10, 7);	set_led_rgb(16, 9, 14, 11, 9);	set_led_rgb(17, 9, 14, 11, 9);	set_led_rgb(18, 9, 14, 11, 9);	set_led_rgb(19, 9, 14, 11, 9);
+}
+
