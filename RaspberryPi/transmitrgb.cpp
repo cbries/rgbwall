@@ -8,7 +8,9 @@
 /*
  * Build: $ g++ -O3 -o transmitrgb transmitrgb.cpp -std=c++0x
  * Usage: $ transmitrgb /dev/ttyACM0 -x 00 -y 00 -r 23 -g 25 -b 65 [-ts 0 -tms 500]
- * Usage: $ transmitrgb /dev/ttyACM0 -br 0-255  
+ * Usage: $ transmitrgb /dev/ttyACM0 -br 0-255
+ * Usage: $ transmitrgb -modes
+ * Usage: $ transmitrgb /dev/ttyACM0 -m|-mode CHAR   
  *
  *  IMPORTANT:
  * ###################
@@ -71,6 +73,8 @@ struct Data
 		endless = false;
 		dobrightness = false;
 		brightness = 15;
+		domode = false;
+		mode = "C";
 	}
 	std::string devname;
 	uint8_t x, y;
@@ -86,6 +90,8 @@ struct Data
 	bool endless;
 	bool dobrightness;
 	int brightness;
+	bool domode;
+	std::string mode;
 };
 
 bool parseOptions(int argc, char **argv, Data & data)
@@ -103,9 +109,23 @@ bool parseOptions(int argc, char **argv, Data & data)
 		else if(!strcmp(argv[i], "-tms")) { data.timeoutMsecs = atoi(argv[i+1]); }
 		else if(!strcmp(argv[i], "-t"))   { data.endless = true; }
 		else if(!strcmp(argv[i], "-br"))  { data.dobrightness = true; data.brightness = atoi(argv[i+1]); }
+		else if(!strcmp(argv[i], "-mode") || !strcmp(argv[i], "-m")) {
+			data.domode = true;
+			data.mode = argv[i+1];
+		}
 		else { }
 	}
-	return true;
+	return 0;
+}
+
+void showModes()
+{
+	std::cout << "Modes: " << std::endl;
+	std::cout << "  A:  run grid" << std::endl;
+    std::cout << "  B:  random leds" << std::endl;
+    std::cout << "  C:  color wave" << std::endl;
+    std::cout << "  D:  rainbow" << std::endl;
+    std::cout << "  E:  show Super Mario's Goomba" << std::endl;
 }
 
 void showUsage()
@@ -113,8 +133,9 @@ void showUsage()
 	std::cout << "Usage: transmitgrb DEVNAME -x INT -y INT -r INT -g INT -b INT" << std::endl;
 	std::cout << " Optional: -ts UINT8 -tms UINT8  (for setting a timeout)" << std::endl; 
 	std::cout << "           -t  (endless loop for setting the value)" << std::endl;
-
 	std::cout << "Usage: transmitrgb DEVNAME -br 0-255" << std::endl;
+	std::cout << "Usage: transmitrgb -modes" << std::endl;
+	std::cout << "Usage: transmitrgb DEVNAME -m|-mode CHAR" << std::endl;
 }
 
 /**
@@ -305,6 +326,15 @@ bool sendMessage(int fd, std::string msg, const Data *pdata)
  */
 int main(int argc, char **argv)
 {
+	if(argc == 2)
+	{
+		if(!strcmp(argv[1], "-modes"))
+		{
+			showModes();
+			return 1;
+		}
+	}
+
 	if(argc != 4)
 	{
 		if(argc < 12)
@@ -315,10 +345,12 @@ int main(int argc, char **argv)
 	}
 
 	Data data;
-	bool res = parseOptions(argc, argv, data); 
-	if(res == false) {
+	int res = parseOptions(argc, argv, data); 
+	if(res == 1) {
 		showUsage();
 		return 1;
+	} else if(res == 2) {
+		return 0;
 	}
 
 	int fd = open(data.devname.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
@@ -335,6 +367,10 @@ int main(int argc, char **argv)
     {
     	snprintf(buf, MAXLEN, "b%03d\n", data.brightness);
     }
+	else if(data.domode)
+	{
+		snprintf(buf, MAXLEN, "m%s\n", data.mode.c_str());
+	}
 	else
     {
     	snprintf(buf, MAXLEN, "%02d%02d%03d%03d%03d\n",
