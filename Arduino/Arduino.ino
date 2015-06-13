@@ -4,6 +4,9 @@
  * GitHub: https://github.com/cbries
  * License: MIT, see https://github.com/cbries
  *
+ * 2015-06-13 Christian Benjamin Ries
+ *  - add mode (i.e. 'mF') for default LED control based on direct address access
+ * 
  * 2015-04-06 Christian Benjamin Ries
  *   - store recent mode in EEPROM
  *
@@ -53,7 +56,7 @@
 #define SPI_SEND(v) spi_transfer(v)
 #define SPI_STOP PORTB |= ( 1 << SPI_LATCH_PIN )
 
-volatile uint8_t MAX_BRIGHTNESS = 15; // 0...50 above 50 looks bad
+volatile uint8_t MAX_BRIGHTNESS = 14; // 0...50 above 50 looks bad
 
 #define __TIMER1_MAX 0xFFFF // 16 bit CTR
 #define __TIMER1_CNT 0x0155 // absoluter Grenzwert: 0x0150, > 0x0170 (little flicker)
@@ -177,11 +180,17 @@ byte isr_red  [DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on 
 byte isr_green[DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on (0)
 byte isr_blue [DEVICES_ARRAY_SIZES] = { 0, 0, 0, 0 }; // current sinker when on (0)
 
+//! used for enabling/disabling timer-based visualization
 volatile bool DoRefresh = true;
+
+//! true:=any LED must be controlled manually (i.e. 'mF' is set)
+//! false:=an automatically generated visualization is used
+volatile bool DoManuallyMode = false; 
 
 ISR(TIMER1_OVF_vect) 
 {
-  if(DoRefresh == false) { return; }
+  if(DoRefresh == false || DoManuallyMode == true)
+    return;
   
   TCNT1 = __TIMER1_MAX - __TIMER1_CNT;
 
@@ -295,11 +304,12 @@ void loop(void)
   checkSerial();
   switch(RUNMODE)
   {
-    case 'A': runGrid(); break;
-    case 'B': for(unsigned int i=0; i < 100; ++i) { random_leds(); copyBuffer(); delayMicroseconds(10); } break;
-    case 'C': color_wave(18); copyBuffer(); delayMicroseconds(25); break;
-    case 'D': rainbow(); delayMicroseconds(25); break;
-    case 'E': ShowGoomba(); delayMicroseconds(25); break;
+    case 'A': DoManuallyMode=false; runGrid(); break;
+    case 'B': DoManuallyMode=false; for(unsigned int i=0; i < 100; ++i) { random_leds(); copyBuffer(); delayMicroseconds(10); } break;
+    case 'C': DoManuallyMode=false; color_wave(18); copyBuffer(); delayMicroseconds(25); break;
+    case 'D': DoManuallyMode=false; rainbow(); delayMicroseconds(25); break;
+    case 'E': DoManuallyMode=false; ShowGoomba(); delayMicroseconds(25); break;
+    case 'F': manuallyControl(); break;
   }
 }
 
@@ -343,7 +353,7 @@ char buf[MAX] = { '\0' };
 byte index = 0;
 
 void checkSerial()
-{
+{  
   while (Serial.available() > 0)
   {
     DoRefresh = false;
@@ -376,7 +386,7 @@ void checkSerial()
   
     if(sbuf[0] == 'm' && index == 3)
     {
-      RUNMODE = sbuf[1];      
+      RUNMODE = sbuf[1]; 
       EEPROM.write(RUNMODE_EEPROM_ADDR, RUNMODE);
       Serial.println(" OK ");
     }
@@ -419,7 +429,7 @@ void checkSerial()
       
       Serial.println(" OK ");
     }
-    
+        
     index = 0;
   }
 }
@@ -466,5 +476,195 @@ void ShowGoomba()
   set_led_rgb(0, 7, 13, 5, 0);	set_led_rgb(1, 7, 13, 5, 0);	set_led_rgb(2, 7, 13, 5, 0);	set_led_rgb(3, 7, 13, 5, 0);	set_led_rgb(4, 7, 13, 5, 0);	set_led_rgb(5, 7, 13, 5, 0);	set_led_rgb(6, 7, 13, 5, 0);	set_led_rgb(7, 7, 13, 5, 0);	set_led_rgb(8, 7, 13, 5, 0);	set_led_rgb(9, 7, 13, 5, 0);	set_led_rgb(10, 7, 13, 5, 0);	set_led_rgb(11, 7, 13, 5, 0);	set_led_rgb(12, 7, 13, 5, 0);	set_led_rgb(13, 7, 13, 5, 0);	set_led_rgb(14, 7, 13, 5, 0);	set_led_rgb(15, 7, 13, 5, 0);	set_led_rgb(16, 7, 13, 5, 0);	set_led_rgb(17, 7, 13, 5, 0);	set_led_rgb(18, 7, 13, 5, 0);	set_led_rgb(19, 7, 13, 5, 0);
   set_led_rgb(0, 8, 13, 5, 0);	set_led_rgb(1, 8, 13, 5, 0);	set_led_rgb(2, 8, 13, 5, 0);	set_led_rgb(3, 8, 13, 5, 0);	set_led_rgb(4, 8, 13, 5, 0);	set_led_rgb(5, 8, 13, 9, 6);	set_led_rgb(6, 8, 13, 12, 10);	set_led_rgb(7, 8, 13, 12, 10);	set_led_rgb(8, 8, 13, 12, 10);	set_led_rgb(9, 8, 13, 12, 10);	set_led_rgb(10, 8, 13, 12, 10);	set_led_rgb(11, 8, 13, 12, 10);	set_led_rgb(12, 8, 13, 12, 10);	set_led_rgb(13, 8, 13, 10, 8);	set_led_rgb(14, 8, 13, 5, 0);	set_led_rgb(15, 8, 13, 5, 0);	set_led_rgb(16, 8, 13, 5, 0);	set_led_rgb(17, 8, 13, 5, 0);	set_led_rgb(18, 8, 13, 5, 0);	set_led_rgb(19, 8, 13, 6, 2);
   set_led_rgb(0, 9, 14, 11, 8);	set_led_rgb(1, 9, 14, 11, 9);	set_led_rgb(2, 9, 14, 11, 9);	set_led_rgb(3, 9, 13, 10, 7);	set_led_rgb(4, 9, 13, 9, 6);	set_led_rgb(5, 9, 13, 11, 8);	set_led_rgb(6, 9, 13, 12, 10);	set_led_rgb(7, 9, 13, 12, 10);	set_led_rgb(8, 9, 13, 12, 10);	set_led_rgb(9, 9, 13, 12, 10);	set_led_rgb(10, 9, 13, 12, 10);	set_led_rgb(11, 9, 13, 12, 10);	set_led_rgb(12, 9, 13, 12, 10);	set_led_rgb(13, 9, 13, 11, 9);	set_led_rgb(14, 9, 13, 9, 6);	set_led_rgb(15, 9, 14, 10, 7);	set_led_rgb(16, 9, 14, 11, 9);	set_led_rgb(17, 9, 14, 11, 9);	set_led_rgb(18, 9, 14, 11, 9);	set_led_rgb(19, 9, 14, 11, 9);
+}
+
+// ##############################################
+//  STILL IN PROGRESSS - NOT FULLY IMPLEMENTED
+// ##############################################
+
+class Block
+{
+protected:  
+  uint8_t _red, _green, _blue;
+  uint8_t _width, _height;
+  uint8_t _x, _y;
+  
+public:
+  Block() { _red = 0; _green = 0; _blue = 255; _width = 1; _height = 1; _x = 0; _y = 0; }
+  Block(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t h)
+    : _red(r), _green(g), _blue(b), _width(w), _height(h) 
+  { }
+  
+  inline void setPos(uint8_t x, uint8_t y)
+  {  _x = x; _y = y; }
+  
+  inline void draw()
+  {
+    for(uint8_t xx=0; xx < _width; ++xx)
+    {
+      for(uint8_t yy=0; yy < _height; ++yy)
+      {
+        uint8_t xcoord = _x + xx;
+        uint8_t ycoord = _y + yy;
+                
+        if(xcoord < 0 || xcoord > WIDTH)
+          continue;
+        if(ycoord < 0 || ycoord > HEIGHT)
+          continue;
+        
+        set_led_rgb(xcoord, ycoord, _red, _green, _blue);
+      }
+    }
+  }
+
+  enum Direction { Up=0, Down=1, None=2, Left=3, Right=4 };
+
+protected:
+  Direction _directionX;  
+  Direction _directionY;  
+
+  virtual bool isValidMoveX(uint8_t stepx) = 0;
+  virtual bool isValidMoveY(uint8_t stepy) = 0;
+  virtual bool moveX(Direction direction) = 0;
+  virtual bool moveY(Direction direction) = 0;
+  virtual bool move() = 0;
+};
+
+class Ball : public Block
+{
+public:
+  Ball(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t h) : Block(r, g, b, w, h) { }
+
+  bool isValidMoveX(uint8_t stepx) { return false; }
+  bool isValidMoveY(uint8_t stepy) { return false; }
+  bool moveX(Direction direction) { return false; }  
+  bool moveY(Direction direction) { return false; }
+  bool move() { return false; }  
+};
+
+class Player : public Block
+{
+public:
+  Player(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t h) : Block(r, g, b, w, h) { }
+
+  bool isValidMoveX(uint8_t stepx) { return false; }
+  bool isValidMoveY(uint8_t stepy) { return false; }
+  bool moveX(Direction direction) { return false; }  
+  bool moveY(Direction direction) { return false; }
+  bool move() { return false; }  
+};
+
+bool PlayfieldGenerated = false;
+Block *PlayfieldPart[3] { NULL, NULL, NULL };
+uint8_t PlayfieldKeepPreviousBrightness = 15;
+unsigned long PlayfieldRecentTime;
+unsigned long PlayfieldRecentTimeNext;
+unsigned long PlayfieldRecentTimeWaitFor = 10;
+
+void PlayfieldDispose()
+{
+  MAX_BRIGHTNESS = PlayfieldKeepPreviousBrightness;
+  PlayfieldRecentTime = 0;
+  delete PlayfieldPart[0];
+  delete PlayfieldPart[1];
+  delete PlayfieldPart[2];  
+  PlayfieldGenerated = false;
+}
+
+bool PlayfieldSimulate()
+{ 
+  if(millis() < PlayfieldRecentTimeNext)
+    return false;
+  else
+    PlayfieldRecentTimeNext = millis() + PlayfieldRecentTimeWaitFor;
+
+  // TODO 
+    
+  return true;
+}
+
+void PlayfieldGenerate()
+{
+  PlayfieldKeepPreviousBrightness = MAX_BRIGHTNESS;
+  MAX_BRIGHTNESS = 255;
+  PlayfieldRecentTime = millis();
+  PlayfieldRecentTimeNext = millis() + PlayfieldRecentTimeWaitFor; 
+   
+  PlayfieldPart[0] = new Ball(255, 0, 0, 1, 1);
+  PlayfieldPart[0]->setPos(10, 5);
+  
+  PlayfieldPart[1] = new Player(0, 255, 255, 1, 4);
+  PlayfieldPart[1]->setPos(0, 3);
+  
+  PlayfieldPart[2] = new Player(255, 0, 255, 1, 4);
+  PlayfieldPart[2]->setPos(19, 3);
+  
+  PlayfieldGenerated = true;
+
+  Serial.println(" Playfield generated, have fun!");
+}
+
+void PlayfieldReset()
+{
+  for(uint8_t x = 0; x < WIDTH; ++x) {
+    for(uint8_t y = 0; y < HEIGHT; ++y) {
+      set_led_rgb(x, y, 0, 0, 0);
+    }
+  }
+}
+
+void PlayfieldRender()
+{
+  for(int i=0; i < 3; ++i)
+    PlayfieldPart[i]->draw();
+}
+
+void PlayfieldRefresh()
+{
+  for(byte isr_cycle = 0; isr_cycle < MAX_BRIGHTNESS; ++isr_cycle) 
+  {
+    for(byte isr_row = 0; isr_row < ROWS; ++isr_row) 
+    {
+      SPI_START;
+      for(byte isr_dev=0; isr_dev < DEVICES; ++isr_dev)
+      {      
+        isr_red[isr_dev]   = 0x00;
+        isr_green[isr_dev] = 0x00; 
+        isr_blue[isr_dev]  = 0x00;
+      
+        for(byte isr_col = 0, cc=0; isr_col < NUM_CR; isr_col += COLUMNS, ++cc) 
+        {
+          if(isr_cycle < BRIGHTNESS_RED2(devoffsets[isr_dev], isr_col, isr_row))   { isr_red[isr_dev]   |= (1 << cc); }
+          if(isr_cycle < BRIGHTNESS_GREEN2(devoffsets[isr_dev], isr_col, isr_row)) { isr_green[isr_dev] |= (1 << cc); }
+          if(isr_cycle < BRIGHTNESS_BLUE2(devoffsets[isr_dev], isr_col, isr_row))  { isr_blue[isr_dev]  |= (1 << cc); } 
+        }
+
+        SPI_SEND(isr_blue[isr_dev]);
+        SPI_SEND(isr_green[isr_dev]);
+        SPI_SEND(isr_red[isr_dev]);
+        SPI_SEND(B00000001 << isr_row);
+      }    
+      SPI_STOP;
+    }
+  }
+
+  delayMicroseconds(100);
+}
+
+void manuallyControl()
+{ 
+  if(!PlayfieldGenerated)
+    PlayfieldGenerate();
+  
+  DoManuallyMode = true;
+  DoRefresh = false;
+
+  bool res = PlayfieldSimulate();
+  if(res)
+  {
+    PlayfieldReset();
+    PlayfieldRender();
+    PlayfieldRefresh();
+  }
 }
 
