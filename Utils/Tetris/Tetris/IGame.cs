@@ -6,6 +6,8 @@
         int Height { get; }
 
         Pixel[] Pixels { get; }
+
+        Block CurrentBlock { get; }
     }
 
     public static class GameUtils

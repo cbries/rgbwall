@@ -13,6 +13,10 @@ namespace Tetris
         private int _updateMove = 1000; // msecs
         private long _lastMoveUpdate = 0;
 
+        public Block CurrentBlock { get; private set; }
+
+        private Pixel[] _playedPixel = new Pixel[_width * _height];
+
         #region IGame
 
         private const int _width = 10;
@@ -54,6 +58,14 @@ namespace Tetris
         {
             _lastRenderUpdate = _stopwatch.ElapsedMilliseconds;
             _lastMoveUpdate = _stopwatch.ElapsedMilliseconds;
+
+            CurrentBlock = Block.NextBlock();
+
+            for (int i = 0; i < _playedPixel.Length; ++i)
+                _playedPixel[i] = null;
+
+            for (int i = 0; i < _pixels.Length; ++i)
+                _pixels[i] = null;
         }
 
         public void Play()
@@ -88,7 +100,10 @@ namespace Tetris
             if (!ShouldMoveUpdate())
                 return false;
 
-            // do update
+            if (CurrentBlock == null)
+                CurrentBlock = Block.NextBlock();
+
+            // ...
 
             _lastMoveUpdate = _stopwatch.ElapsedMilliseconds;
 
@@ -100,7 +115,7 @@ namespace Tetris
             if (_drawEngine == null)
                 return;
 
-            _drawEngine.Render();
+            _drawEngine.Render(this);
         }
     }
 }

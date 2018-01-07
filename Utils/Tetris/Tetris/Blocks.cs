@@ -1,8 +1,69 @@
-﻿namespace Tetris
+﻿using System;
+using System.Collections.Generic;
+
+namespace Tetris
 {
     public class Block
     {
+        private static Random _rnd = new Random(DateTime.Now.Millisecond);
+
         public Pixel[] Pixels { get; protected set; }
+
+        public Pixel[] RealPixels
+        {
+            get
+            {
+                var pxs = new List<Pixel>();
+                for (int i = 0; i < 4; ++i)
+                {
+                    var idx = i + _rotIndex * 4;
+                    pxs.Add(Pixels[idx]);
+                }
+                return pxs.ToArray();
+            }
+        }
+
+        public Block()
+        {
+            X = 4;
+            Y = 0;
+        }
+
+        public static Block NextBlock()
+        {
+            int idx = _rnd.Next(0, 7);
+            switch (idx)
+            {
+                case 0: return new BlockI();
+                case 1: return new BlockJ();
+                case 2: return new BlockL();
+                case 3: return new BlockO();
+                case 4: return new BlockS();
+                case 5: return new BlockT();
+                case 6: return new BlockZ();
+            }
+
+            return null;
+        }
+
+        public int X { get; protected set; }
+        public int Y { get; protected set; }
+
+        private int _rotIndex = 0;
+
+        public void RotCcw()
+        {
+            _rotIndex -= 1;
+            if (_rotIndex < 0)
+                _rotIndex = 3;
+        }
+
+        public void RotCw()
+        {
+            _rotIndex += 1;
+            if (_rotIndex > 3)
+                _rotIndex = 0;
+        }
     }
 
     public class BlockI : Block
