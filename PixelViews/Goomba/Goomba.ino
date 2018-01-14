@@ -10,9 +10,13 @@
 #define PIN_MODE 4
 #define PIN_LED A1
 
-int currentMode = 1;
+int currentMode = 4;
 #define MAXMODE 5
 int eeprom_addr = 0;
+
+long lastMillis = millis();
+long currentMillis = millis();
+long pauseMillis = 10 * 1000;
 
 const uint8_t kMatrixWidth = 20;
 const uint8_t kMatrixHeight = 10;
@@ -106,15 +110,17 @@ void loop()
 
   EEPROM.write(eeprom_addr, currentMode);
 
+  FastLED.clear();
+
   switch(currentMode)
   {
-    case 0: ShowGoomba(); break;
-    case 1: Test(); break;
-    case 2: ShowPotValue(); break;
-    case 3: RainbowA(); break;
+    case 0: Test(); break;
+    case 1: ShowPotValue(); break;    
+    case 2: RainbowA(); break;
+    case 3: ShowGoomba(); break;
     case 4: ShowMario(); break;
   }
-
+  
   FastLED.show();
   FastLED.setBrightness(newBrightness);
 }
@@ -148,10 +154,9 @@ void DrawOneFrame( byte startHue8, int8_t yHueDelta8, int8_t xHueDelta8)
 
 void Test()
 {
-  FastLED.clear();
-  set_led_rgb(1, 1, 255, 0, 0);
-  set_led_rgb(2, 1, 0, 255, 0);
-  set_led_rgb(2, 1, 0, 0, 255);  
+  set_led_rgb(0, 1, 255, 0, 0);
+  set_led_rgb(1, 1, 0, 255, 0);
+  set_led_rgb(2, 1, 0, 0, 255);    
 }
 
 void ShowPotValue()
@@ -168,8 +173,6 @@ void ShowPotValue()
 
 void ShowGoomba()
 { 
-  FastLED.clear();
-  // Shows a Goomba, see https://raw.githubusercontent.com/cbries/rgbwall/master/Photos,%20Images,%20Videos/Goomba01.jpg
 set_led_rgb(0, 0, 235, 168, 130);
 set_led_rgb(1, 0, 227, 91, 6);
 set_led_rgb(2, 0, 143, 58, 6);
