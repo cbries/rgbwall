@@ -1,22 +1,20 @@
 #include <FastLED.h>
 #include <EEPROM.h>
 #include <SPI.h>
+#include <SD.h>
 
 #define LED_PIN     5
 #define COLOR_ORDER GRB
 #define CHIPSET     WS2811
 
 #define PIN_BRIGHTNESS A0
-#define PIN_MODE 4
+#define PIN_MODE 3
 #define PIN_LED A1
 
-int currentMode = 4;
-#define MAXMODE 5
+#define DEFAULTMODE 5;
+#define MAXMODE 6
+int currentMode = DEFAULTMODE;
 int eeprom_addr = 0;
-
-long lastMillis = millis();
-long currentMillis = millis();
-long pauseMillis = 10 * 1000;
 
 const uint8_t kMatrixWidth = 20;
 const uint8_t kMatrixHeight = 10;
@@ -29,15 +27,23 @@ CRGB* const leds( leds_plus_safety_pixel + 1);
 int buttonState;          
 int lastButtonState = LOW;
 unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 75;
+unsigned long debounceDelay = 10;
 byte ledvalues[200*3] = {0};
+bool initFailed = false;
 
 void setup() 
-{
+{ 
   pinMode(PIN_BRIGHTNESS, INPUT);
   pinMode(PIN_MODE, INPUT);
   pinMode(PIN_LED, OUTPUT);
 
+  Serial.begin(9600);
+
+  if (!SD.begin(4)) {
+    initFailed = true;
+  }
+
+  currentMode = 5;
   currentMode = EEPROM.read(eeprom_addr);
   
   // LEDColorCorrection { TypicalSMD5050 =0xFFB0F0, TypicalLEDStrip =0xFFB0F0, Typical8mmPixel =0xFFE08C, TypicalPixelString =0xFFE08C, UncorrectedColor =0xFFFFFF }
@@ -96,29 +102,70 @@ uint16_t XYsafe( uint8_t x, uint8_t y)
   return XY(x, y);
 }
 
+int pressCount = 0;
+
+char curFileName[12] = "";
+File myFile;
+long previousMillis = 0; 
+long interval = 1000;
+int currentFileIndex = 0;
+
 void loop()
 {
+  if(initFailed)
+    ShowError(2);
+  
   int brightness = analogRead(PIN_BRIGHTNESS);
   int newBrightness = map(brightness, 0, 1023, 0, 255);
-  
-  bool r = isButtonPressed();
-  if(r)
-    currentMode++;
-
-  if(currentMode >= MAXMODE)
-    currentMode = 0;
 
   EEPROM.write(eeprom_addr, currentMode);
 
-  FastLED.clear();
+  bool r = isButtonPressed();
+  if(r)
+    pressCount++;
+  else
+    pressCount = 0;
+    
+  if(r && pressCount <= 1)
+  {
+    currentMode++;
+
+    previousMillis = millis();
+
+    FastLED.clear();
+
+    Serial.print("Mode: ");
+    Serial.println(currentMode);
+  }
+  
+  if(currentMode >= MAXMODE)
+    currentMode = 0;
 
   switch(currentMode)
   {
-    case 0: Test(); break;
-    case 1: ShowPotValue(); break;    
-    case 2: RainbowA(); break;
-    case 3: ShowGoomba(); break;
-    case 4: ShowMario(); break;
+    case 0: 
+      FastLED.clear();
+      Test(); 
+      break;
+    case 1: 
+      FastLED.clear();
+      ShowPotValue(); 
+      break;    
+    case 2: 
+      FastLED.clear();
+      RainbowA(); 
+      break;
+    case 3: 
+      FastLED.clear();
+      ShowGoomba(); 
+      break;
+    case 4: 
+      FastLED.clear();
+      ShowMario(); 
+      break;
+    case 5: 
+      ShowFiles(); 
+      break;
   }
   
   FastLED.show();
@@ -128,6 +175,21 @@ void loop()
 void set_led_rgb(int x, int y, int r, int g, int b)
 {
   leds[ XY(x, y) ] = CRGB( r, g, b );
+}
+
+void ShowError(int errorNr)
+{
+  if(errorNr <= 0 || errorNr >= 200)
+    return;
+
+  Serial.print("Error: "); 
+  Serial.println(errorNr);
+
+  FastLED.clear();
+  for(int led = 0; led < errorNr; led++) { 
+    leds[led] = CRGB::Red; 
+  }
+  FastLED.show();
 }
 
 void RainbowA()
@@ -159,16 +221,87 @@ void Test()
   set_led_rgb(2, 1, 0, 0, 255);    
 }
 
+int lastNumLedsToLight = 0;
+
 void ShowPotValue()
 {
   int val = analogRead(PIN_BRIGHTNESS);
   int numLedsToLight = map(val, 0, 1023, 0, 200);
+
+  if(numLedsToLight != lastNumLedsToLight)
+  {
+    lastNumLedsToLight = numLedsToLight;
+    Serial.print("Pot: ");    
+    Serial.println(lastNumLedsToLight);
+  }  
 
   FastLED.clear();
     for(int led = 0; led < numLedsToLight; led++) { 
       leds[led] = CRGB::Blue; 
     }
   FastLED.show();
+}
+
+bool shown = false;
+
+int ShowFiles()
+{
+  unsigned long currentMillis = millis();
+  long delta = currentMillis - previousMillis;
+  if(delta < interval)
+    return;  
+  previousMillis = currentMillis;
+  currentFileIndex++;    
+
+  FastLED.clear();
+
+  sprintf(curFileName, "%02d.txt", currentFileIndex);
+  myFile = SD.open(curFileName, FILE_READ);
+  if(!myFile)
+  {
+    currentFileIndex = 1;
+    sprintf(curFileName, "%02d.txt", currentFileIndex);
+    myFile = SD.open(curFileName, FILE_READ);
+  }
+
+  if(!myFile)
+  {
+    ShowError(1);
+    return;
+  }
+  
+  Serial.println(curFileName);
+  
+  String line = "";
+  while(myFile.available())
+  { 
+    char c = (char) myFile.read();
+
+    line += c;
+
+    if(c == '\n')
+    {
+      int val[5];
+      char *pch;
+      pch = strtok (line.c_str(), ",");
+      for(byte i = 0; i < 5; ++i)
+      {
+        if(pch == NULL)
+          break;
+        String s(pch); 
+        val[i] = s.toInt();
+        pch = strtok (NULL, ",");
+      }
+
+      set_led_rgb(val[0], val[1], val[2], val[3], val[4]);
+      
+      line = "";
+    }
+  }
+
+  myFile.close();
+
+  return 0;
 }
 
 void ShowGoomba()
