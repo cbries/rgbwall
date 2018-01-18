@@ -11,7 +11,7 @@
 #define PIN_MODE 3
 #define PIN_LED A1
 
-#define DEFAULTMODE 5;
+#define DEFAULTMODE 5; // highest value is MAXMODE-1
 #define MAXMODE 6
 int currentMode = DEFAULTMODE;
 int eeprom_addr = 0;
@@ -20,16 +20,30 @@ const uint8_t kMatrixWidth = 20;
 const uint8_t kMatrixHeight = 10;
 const bool    kMatrixSerpentineLayout = false;
 
+// predefinitions
+void set_led_rgb(int x, int y, int r, int g, int b);
+bool isButtonPressed();
+uint16_t XY( uint8_t x, uint8_t y);
+uint16_t XYsafe( uint8_t x, uint8_t y);
+// end predefinitions
+
+// global variables 
 #define NUM_LEDS (kMatrixWidth * kMatrixHeight)
 CRGB leds_plus_safety_pixel[ NUM_LEDS + 1];
 CRGB* const leds( leds_plus_safety_pixel + 1);
-
 int buttonState;          
 int lastButtonState = LOW;
 unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 10;
 byte ledvalues[200*3] = {0};
 bool initFailed = false;
+int pressCount = 0;
+char curFileName[12] = "";
+File myFile;
+long previousMillis = 0; 
+long interval = 1000;
+int currentFileIndex = 0;
+// end global variables 
 
 void setup() 
 { 
@@ -50,65 +64,6 @@ void setup()
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(UncorrectedColor);
   FastLED.setBrightness(200);
 }
-
-bool isButtonPressed()
-{
-  int reading = digitalRead(PIN_MODE);
-  if (reading != lastButtonState) {
-    lastDebounceTime = millis();
-  }
-
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading != buttonState) {
-      buttonState = reading;      
-    }
-
-    lastButtonState = reading;
-
-    return buttonState == HIGH;
-  }
-
-  lastButtonState = reading;
-
-  return false;
-}
-
-uint16_t XY( uint8_t x, uint8_t y)
-{
-  uint16_t i;
-
-  if ( kMatrixSerpentineLayout == false) {
-    i = (y * kMatrixWidth) + x;
-  }
-
-  if ( kMatrixSerpentineLayout == true) {
-    if ( y & 0x01) {
-      // Odd rows run backwards
-      uint8_t reverseX = (kMatrixWidth - 1) - x;
-      i = (y * kMatrixWidth) + reverseX;
-    } else {
-      // Even rows run forwards
-      i = (y * kMatrixWidth) + x;
-    }
-  }
-
-  return i;
-}
-
-uint16_t XYsafe( uint8_t x, uint8_t y)
-{
-  if ( x >= kMatrixWidth) return -1;
-  if ( y >= kMatrixHeight) return -1;
-  return XY(x, y);
-}
-
-int pressCount = 0;
-
-char curFileName[12] = "";
-File myFile;
-long previousMillis = 0; 
-long interval = 1000;
-int currentFileIndex = 0;
 
 void loop()
 {
@@ -141,40 +96,18 @@ void loop()
   if(currentMode >= MAXMODE)
     currentMode = 0;
 
-  switch(currentMode)
-  {
-    case 0: 
-      FastLED.clear();
-      Test(); 
-      break;
-    case 1: 
-      FastLED.clear();
-      ShowPotValue(); 
-      break;    
-    case 2: 
-      FastLED.clear();
-      RainbowA(); 
-      break;
-    case 3: 
-      FastLED.clear();
-      ShowGoomba(); 
-      break;
-    case 4: 
-      FastLED.clear();
-      ShowMario(); 
-      break;
-    case 5: 
-      ShowFiles(); 
-      break;
-  }
+  void (*fncCalls [])() = {
+      ShowTest,
+      ShowPotValue,
+      RainbowA,
+      ShowGoomba,
+      ShowFiles
+    };
+
+  (fncCalls[currentMode])();
   
   FastLED.show();
   FastLED.setBrightness(newBrightness);
-}
-
-void set_led_rgb(int x, int y, int r, int g, int b)
-{
-  leds[ XY(x, y) ] = CRGB( r, g, b );
 }
 
 void ShowError(int errorNr)
@@ -194,15 +127,17 @@ void ShowError(int errorNr)
 
 void RainbowA()
 {
-    uint32_t ms = millis();
-    int32_t yHueDelta32 = ((int32_t)cos16( ms * (27/1) ) * (350 / kMatrixWidth));
-    int32_t xHueDelta32 = ((int32_t)cos16( ms * (39/1) ) * (310 / kMatrixHeight));
-    DrawOneFrame( ms / 65536, yHueDelta32 / 32768, xHueDelta32 / 32768);
-    FastLED.show(); 
+  FastLED.clear();
+  uint32_t ms = millis();
+  int32_t yHueDelta32 = ((int32_t)cos16( ms * (27/1) ) * (350 / kMatrixWidth));
+  int32_t xHueDelta32 = ((int32_t)cos16( ms * (39/1) ) * (310 / kMatrixHeight));
+  DrawOneFrame( ms / 65536, yHueDelta32 / 32768, xHueDelta32 / 32768);
+  FastLED.show(); 
 }
 
 void DrawOneFrame( byte startHue8, int8_t yHueDelta8, int8_t xHueDelta8)
 {
+  FastLED.clear();
   byte lineStartHue = startHue8;
   for( byte y = 0; y < kMatrixHeight; y++) {
     lineStartHue += yHueDelta8;
@@ -214,8 +149,9 @@ void DrawOneFrame( byte startHue8, int8_t yHueDelta8, int8_t xHueDelta8)
   }
 }
 
-void Test()
+void ShowTest()
 {
+  FastLED.clear();
   set_led_rgb(0, 1, 255, 0, 0);
   set_led_rgb(1, 1, 0, 255, 0);
   set_led_rgb(2, 1, 0, 0, 255);    
@@ -225,6 +161,8 @@ int lastNumLedsToLight = 0;
 
 void ShowPotValue()
 {
+  FastLED.clear();
+  
   int val = analogRead(PIN_BRIGHTNESS);
   int numLedsToLight = map(val, 0, 1023, 0, 200);
 
@@ -242,9 +180,7 @@ void ShowPotValue()
   FastLED.show();
 }
 
-bool shown = false;
-
-int ShowFiles()
+void ShowFiles()
 {
   unsigned long currentMillis = millis();
   long delta = currentMillis - previousMillis;
@@ -273,6 +209,7 @@ int ShowFiles()
   Serial.println(curFileName);
   
   String line = "";
+  bool firstLineRead = false;
   while(myFile.available())
   { 
     char c = (char) myFile.read();
@@ -283,7 +220,7 @@ int ShowFiles()
     {
       int val[5];
       char *pch;
-      pch = strtok (line.c_str(), ",");
+      pch = strtok ((char*)line.c_str(), ",");
       for(byte i = 0; i < 5; ++i)
       {
         if(pch == NULL)
@@ -293,15 +230,21 @@ int ShowFiles()
         pch = strtok (NULL, ",");
       }
 
-      set_led_rgb(val[0], val[1], val[2], val[3], val[4]);
+      if(!firstLineRead)
+      {
+        firstLineRead = true;
+        interval = val[0];
+      }
+      else
+      {
+        set_led_rgb(val[0], val[1], val[2], val[3], val[4]);        
+      }
       
       line = "";
     }
   }
 
   myFile.close();
-
-  return 0;
 }
 
 void ShowGoomba()
@@ -710,5 +653,65 @@ set_led_rgb(16, 9, 252, 252, 252);
 set_led_rgb(17, 9, 255, 255, 255);
 set_led_rgb(18, 9, 253, 253, 253);
 set_led_rgb(19, 9, 252, 252, 252);  
+}
+
+// ************************************************************
+// Helper 
+// ************************************************************
+
+bool isButtonPressed()
+{
+  int reading = digitalRead(PIN_MODE);
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != buttonState) {
+      buttonState = reading;      
+    }
+
+    lastButtonState = reading;
+
+    return buttonState == HIGH;
+  }
+
+  lastButtonState = reading;
+
+  return false;
+}
+
+uint16_t XY( uint8_t x, uint8_t y)
+{
+  uint16_t i;
+
+  if ( kMatrixSerpentineLayout == false) {
+    i = (y * kMatrixWidth) + x;
+  }
+
+  if ( kMatrixSerpentineLayout == true) {
+    if ( y & 0x01) {
+      // Odd rows run backwards
+      uint8_t reverseX = (kMatrixWidth - 1) - x;
+      i = (y * kMatrixWidth) + reverseX;
+    } else {
+      // Even rows run forwards
+      i = (y * kMatrixWidth) + x;
+    }
+  }
+
+  return i;
+}
+
+uint16_t XYsafe( uint8_t x, uint8_t y)
+{
+  if ( x >= kMatrixWidth) return -1;
+  if ( y >= kMatrixHeight) return -1;
+  return XY(x, y);
+}
+
+void set_led_rgb(int x, int y, int r, int g, int b)
+{
+  leds[ XY(x, y) ] = CRGB( r, g, b );
 }
 
