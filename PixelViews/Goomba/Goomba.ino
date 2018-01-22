@@ -96,15 +96,32 @@ void loop()
   if(currentMode >= MAXMODE)
     currentMode = 0;
 
-  void (*fncCalls [])() = {
-      ShowTest,
-      ShowPotValue,
-      RainbowA,
-      ShowGoomba,
-      ShowFiles
-    };
-
-  (fncCalls[currentMode])();
+switch(currentMode)
+  {
+    case 0: 
+      FastLED.clear();
+      ShowTest(); 
+      break;
+    case 1: 
+      FastLED.clear();
+      ShowPotValue(); 
+      break;    
+    case 2: 
+      FastLED.clear();
+      RainbowA(); 
+      break;
+    case 3: 
+      FastLED.clear();
+      ShowGoomba(); 
+      break;
+    case 4: 
+      FastLED.clear();
+      ShowMario(); 
+      break;
+    case 5: 
+      ShowFiles(); 
+      break;
+  }
   
   FastLED.show();
   FastLED.setBrightness(newBrightness);
